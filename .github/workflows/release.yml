@@ -12,45 +12,49 @@ permissions:
   contents: write
 
 jobs:
-  build-linux:
-    name: Build Linux (AMD64)
+  # 1. 独立测试任务 (只在 Linux 上运行)
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Cargo Deb
-        run: cargo install cargo-deb
-
       - name: Run Tests
         run: cargo test -p oss-cli
 
+  # 2. 构建 Linux 包 (依赖测试通过)
+  build-linux:
+    name: Build Linux (AMD64)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Cargo Deb
+        run: cargo install cargo-deb
       - name: Build Release
         run: cargo build --release -p oss-cli
-
       - name: Build Debian Package
         run: |
           cargo deb -p oss-cli --no-build --output target/debian/oss-manager-cli_${{ inputs.tag_name }}_x64.deb
-
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-deb
           path: target/debian/*.deb
 
+  # 3. 构建 Windows 包 (依赖测试通过)
   build-windows:
     name: Build Windows (AMD64)
+    needs: test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Run Tests
-        run: cargo test -p oss-cli
 
       - name: Build Release
         run: cargo build --release -p oss-cli
@@ -61,14 +65,14 @@ jobs:
           7z a ../../oss-manager-cli_${{ inputs.tag_name }}_x64.zip oss-cli.exe
         shell: cmd
 
-      - name: Compile Inno Setup Script
-        uses: MinionsVS/install-inno-setup@v1
-        with:
-          version: 6.2.2
-          
+      # 使用 Chocolatey 安装 Inno Setup (更稳定)
+      - name: Install Inno Setup
+        run: choco install innosetup
+
       - name: Run Inno Setup
         run: |
           "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "oss-cli\setup.iss" "/Otarget\installer" "/Foss-manager-cli_${{ inputs.tag_name }}_x64_setup"
+        shell: cmd
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -78,6 +82,7 @@ jobs:
             oss-manager-cli_${{ inputs.tag_name }}_x64.zip
             target/installer/*.exe
 
+  # 4. 发布任务
   release:
     name: Create Release
     needs: [build-linux, build-windows]
