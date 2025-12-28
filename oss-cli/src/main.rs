@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, CommandFactory, FromArgMatches};
 use inquire::{Confirm, Password, Select, Text};
 use oss_core::config::{ConfigManager, Profile};
 use oss_core::db::TaskRepository;
@@ -10,7 +10,6 @@ use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[command(name = "oss-cli")]
-#[command(about = "A CLI for managing OSS/S3 files", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -132,7 +131,21 @@ async fn main() -> Result<()> {
         .with_target(false) // Hide module path for cleaner CLI output
         .init();
 
-    let cli = Cli::parse();
+    // Dynamically build about message
+    let exe_path = std::env::current_exe()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    
+    let about = format!(
+        "A CLI for managing OSS/S3 files\nOSS Manager CLI {}\n\nPath: {}",
+        env!("CARGO_PKG_VERSION"),
+        exe_path
+    );
+
+    let cmd = Cli::command().about(about);
+    let matches = cmd.get_matches();
+    let cli = Cli::from_arg_matches(&matches)
+        .unwrap_or_else(|e| e.exit());
 
     let config_path = if let Some(p) = cli.config {
         p
@@ -188,7 +201,7 @@ async fn main() -> Result<()> {
             manager.save_to_file(&config_path)?;
             println!("Initialized config at {:?}", config_path);
         }
-        Commands::Add { 
+        Commands::Add {
             name, 
             provider, 
             access_key, 
@@ -212,7 +225,7 @@ async fn main() -> Result<()> {
                             Ok(inquire::validator::Validation::Valid)
                         }
                     })
-                    .prompt()?
+                    .prompt()? 
             };
 
             if manager.get_profile(&profile_name).is_some() {
@@ -241,7 +254,7 @@ async fn main() -> Result<()> {
                 None => Password::new("Access Key ID:")
                     .with_display_mode(inquire::PasswordDisplayMode::Masked)
                     .without_confirmation()
-                    .prompt()?
+                    .prompt()? 
             };
 
             let sk = match secret_key {
@@ -249,12 +262,12 @@ async fn main() -> Result<()> {
                 None => Password::new("Secret Access Key:")
                     .with_display_mode(inquire::PasswordDisplayMode::Masked)
                     .without_confirmation()
-                    .prompt()?
+                    .prompt()? 
             };
 
             let reg = match region {
                 Some(r) => r,
-                None => Text::new("Region (e.g., us-east-1, auto):").prompt()?
+                None => Text::new("Region (e.g., us-east-1, auto):").prompt()? 
             };
 
             let ep = match endpoint {
@@ -294,13 +307,6 @@ async fn main() -> Result<()> {
                 return Err(anyhow!("Profile '{}' not found", name));
             }
 
-            // Confirm deletion if interactive? 
-            // CLI usually assumes force unless flag provided, but let's be safe or just do it.
-            // Following "rm" style, we usually just delete. But "inquire" makes it easy.
-            // However, strict CLI tools often just do what is asked. 
-            // Let's add confirmation if not passed via some force flag? 
-            // For now, straightforward deletion.
-            
             manager.profiles.remove(&name);
             manager.save_to_file(&config_path)?;
             println!("Profile '{}' deleted.", name);

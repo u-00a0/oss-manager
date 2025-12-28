@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 # AWS SDK with rustls for cross-platform support
-aws-config = { version = "1.5", default-features = false, features = ["rustls", "behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.60", default-features = false, features = ["rustls"] }
+aws-config = { version = "1.5", default-features = false, features = ["rustls", "behavior-version-latest", "rt-tokio"] }
+aws-sdk-s3 = { version = "1.60", default-features = false, features = ["rustls", "rt-tokio"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

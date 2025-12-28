@@ -7,6 +7,7 @@ use aws_sdk_s3::Client;
 use std::path::Path;
 use walkdir::WalkDir;
 use tracing::{info, warn};
+use std::collections::{BTreeMap, HashSet};
 
 pub struct TransferManager {
     client: Client,
@@ -36,7 +37,7 @@ impl TransferManager {
         // 1. Get Common Prefixes (Folders)
         let folders = self.ops.list_common_prefixes(bucket, prefix).await?;
         for f in folders {
-            results.push(format!("DIR  {}", f));
+            results.push(format!("DIR  {f}"));
         }
 
         // 2. Get Objects (Files)
@@ -52,16 +53,92 @@ impl TransferManager {
         Ok(results)
     }
     
-    /// Recursive tree view (returns list of all keys)
+    /// Recursive tree view (returns formatted tree string)
     pub async fn tree(&self, bucket: &str, prefix: &str) -> Result<Vec<String>> {
+        // 1. List all objects recursively
         let files = self.ops.list_objects(bucket, prefix, true).await?;
-        let mut keys = Vec::new();
-        for f in files {
-            if let Some(key) = f.key {
-                keys.push(key);
+        
+        // 2. Extract directories
+        let mut dirs = HashSet::new();
+        
+        for obj in files {
+            if let Some(key) = obj.key {
+                 // Clean prefix removal
+                 let relative_key = if let Some(stripped) = key.strip_prefix(prefix) {
+                     stripped
+                 } else {
+                     continue; 
+                 };
+                 // Remove leading slash if any
+                 let relative_key = relative_key.trim_start_matches('/');
+                 if relative_key.is_empty() { continue; }
+
+                 if key.ends_with('/') {
+                     // It's an explicit folder, remove trailing slash
+                     let path = relative_key.trim_end_matches('/');
+                     if !path.is_empty() {
+                         dirs.insert(path.to_string());
+                     }
+                 } else {
+                     // It's a file, get parent directory
+                     let path = std::path::Path::new(relative_key);
+                     if let Some(parent) = path.parent() {
+                         let p_str = parent.to_string_lossy();
+                         if !p_str.is_empty() && p_str != "." {
+                            // We need to add all ancestors
+                            let parts: Vec<&str> = p_str.split('/').collect();
+                            let mut current = String::new();
+                            for (i, part) in parts.iter().enumerate() {
+                                if i > 0 { current.push('/'); }
+                                current.push_str(part);
+                                dirs.insert(current.clone());
+                            }
+                         }
+                     }
+                 }
             }
         }
-        Ok(keys)
+
+        // 3. Build Tree Structure
+        #[derive(Debug)]
+        struct Node {
+            children: BTreeMap<String, Node>,
+        }
+        
+        let mut root = Node { children: BTreeMap::new() };
+        
+        for dir in dirs {
+            let parts: Vec<&str> = dir.split('/').collect();
+            let mut current_node = &mut root;
+            for part in parts {
+                current_node = current_node.children.entry(part.to_string()).or_insert(Node { children: BTreeMap::new() });
+            }
+        }
+
+        // 4. Draw Tree
+        let mut lines = Vec::new();
+        
+        // Helper recursive function
+        fn draw(node: &Node, prefix: &str, lines: &mut Vec<String>) {
+            let count = node.children.len();
+            for (i, (name, child)) in node.children.iter().enumerate() {
+                let is_last = i == count - 1;
+                let connector = if is_last { "└── " } else { "├── " };
+                lines.push(format!("{}{}{}", prefix, connector, name));
+                
+                let child_prefix = if is_last { "    " } else { "│   " };
+                let new_prefix = format!("{}{}", prefix, child_prefix);
+                draw(child, &new_prefix, lines);
+            }
+        }
+        
+        draw(&root, "", &mut lines);
+        
+        if lines.is_empty() {
+            return Ok(vec!["No subdirectories found.".to_string()]);
+        }
+
+        Ok(lines)
     }
 
     pub async fn upload(
@@ -78,7 +155,7 @@ impl TransferManager {
             // Single file upload
             let key = if dest_key.ends_with('/') || dest_key.is_empty() {
                 let filename = local_path.file_name().unwrap().to_string_lossy();
-                format!("{}{}", dest_key, filename)
+                format!("{dest_key}{filename}")
             } else {
                 dest_key.to_string()
             };
@@ -96,9 +173,9 @@ impl TransferManager {
                     let relative_key = relative_path.to_string_lossy().replace("\\", "/");
                     
                     let key = if dest_key.ends_with('/') || dest_key.is_empty() {
-                         format!("{}{}", dest_key, relative_key)
+                         format!("{dest_key}{relative_key}")
                     } else {
-                         format!("{}/{}", dest_key, relative_key)
+                         format!("{dest_key}/{relative_key}")
                     };
 
                     info!("Uploading: {:?} -> s3://{}/{}", path, bucket, key);
@@ -177,9 +254,9 @@ impl TransferManager {
                     };
                     
                     let new_key = if dest_key.ends_with('/') {
-                        format!("{}{}", dest_key, relative)
+                        format!("{dest_key}{relative}")
                     } else {
-                         format!("{}/{}", dest_key, relative)
+                         format!("{dest_key}/{relative}")
                     };
                     
                     let final_key = if key == src_key && !dest_key.ends_with('/') {
