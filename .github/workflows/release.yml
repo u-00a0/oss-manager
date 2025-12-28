@@ -1,0 +1,110 @@
+name: Build and Release CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag Name (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux (AMD64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Cargo Deb
+        run: cargo install cargo-deb
+
+      - name: Run Tests
+        run: cargo test -p oss-cli
+
+      - name: Build Release
+        run: cargo build --release -p oss-cli
+
+      - name: Build Debian Package
+        run: |
+          cargo deb -p oss-cli --no-build --output target/debian/oss-manager-cli_${{ inputs.tag_name }}_x64.deb
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: target/debian/*.deb
+
+  build-windows:
+    name: Build Windows (AMD64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run Tests
+        run: cargo test -p oss-cli
+
+      - name: Build Release
+        run: cargo build --release -p oss-cli
+
+      - name: Create Zip Package
+        run: |
+          cd target/release
+          7z a ../../oss-manager-cli_${{ inputs.tag_name }}_x64.zip oss-cli.exe
+        shell: cmd
+
+      - name: Compile Inno Setup Script
+        uses: MinionsVS/install-inno-setup@v1
+        with:
+          version: 6.2.2
+          
+      - name: Run Inno Setup
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "oss-cli\setup.iss" "/Otarget\installer" "/Foss-manager-cli_${{ inputs.tag_name }}_x64_setup"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-packages
+          path: |
+            oss-manager-cli_${{ inputs.tag_name }}_x64.zip
+            target/installer/*.exe
+
+  release:
+    name: Create Release
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Delete Existing Tag/Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag_name }}
+        run: |
+          gh release delete $TAG --cleanup-tag -y || true
+          git push --delete origin $TAG || true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ inputs.tag_name }}
+          name: Release ${{ inputs.tag_name }}
+          draft: false
+          prerelease: false
+          files: |
+            linux-deb/*.deb
+            windows-packages/*.zip
+            windows-packages/*.exe
+          token: ${{ secrets.GITHUB_TOKEN }}

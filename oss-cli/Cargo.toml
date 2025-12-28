@@ -16,3 +16,13 @@ dotenvy = "0.15"
 inquire = "0.9.1"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+
+[package.metadata.deb]
+maintainer = "OSS Manager Team"
+copyright = "2025, OSS Manager Team"
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/oss-cli", "usr/bin/oss-cli", "755"]
+]
