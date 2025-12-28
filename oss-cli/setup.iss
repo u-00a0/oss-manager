@@ -1,5 +1,5 @@
 #define MyAppName "OSS Manager CLI"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "1.0"
 #define MyAppPublisher "OSS Manager Team"
 #define MyAppURL "https://github.com/u-00a0/oss-manager"
 #define MyAppExeName "oss-cli.exe"
@@ -23,6 +23,9 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 ChangesEnvironment=yes
+; === 关键修改：启用 64 位模式 ===
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
