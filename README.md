@@ -40,7 +40,3 @@ cargo install --path oss-cli
 oss-cli init
 ```
 配置文件将生成于 `~/.oss-manager/config.json`。
-
-## 许可证
-
-本项目采用 MIT 许可证。
