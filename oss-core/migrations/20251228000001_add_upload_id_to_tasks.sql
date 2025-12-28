@@ -1,0 +1,1 @@
+ALTER TABLE tasks ADD COLUMN upload_id TEXT;
