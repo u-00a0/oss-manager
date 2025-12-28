@@ -1,5 +1,6 @@
 # OSS CLI 用户手册
 
+[![Build and Release CLI](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml) <br>
 `oss-cli` 是 OSS Manager 项目提供的终端交互工具，旨在为用户提供高效、直观的对象存储管理体验。
 
 ## 1. 安装与配置
