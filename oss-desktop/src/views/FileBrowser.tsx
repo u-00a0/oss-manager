@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
-import type { FileEntry } from "../types";
+import { join } from "@tauri-apps/api/path";
+import type { FileEntry, AppConfig } from "../types";
 import ContextMenu from "../components/ContextMenu";
 import type { MenuItem } from "../components/ContextMenu";
 import { 
@@ -18,7 +19,8 @@ import {
     Download,
     Trash2,
     Copy,
-    Upload
+    Upload,
+    Save
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -111,9 +113,8 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
     }
 
     async function handleUpload(filePaths: string[]) {
-        setLoading(true); // Indicate activity
+        setLoading(true);
         try {
-            // Sequential upload for simplicity, or Promise.all
             for (const path of filePaths) {
                 await invoke("upload_file", {
                     profileName: profile,
@@ -122,7 +123,6 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
                     destPrefix: prefix
                 });
             }
-            // Refresh
             loadFiles();
         } catch (e) {
             console.error("Upload failed", e);
@@ -148,6 +148,28 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
     
     async function handleDownload(file: FileEntry) {
         try {
+            const config = await invoke<AppConfig>("get_app_config");
+            if (config.default_download_dir) {
+                const localPath = await join(config.default_download_dir, file.name);
+                await invoke("download_file", {
+                    profileName: profile,
+                    bucket,
+                    key: file.path,
+                    localPath
+                });
+                // Small visual feedback could be added here (toast)
+                console.log(`Started download to ${localPath}`);
+            } else {
+                // Fallback to Save As if no default dir configured
+                await handleSaveAs(file);
+            }
+        } catch (e) {
+            alert("Download failed: " + e);
+        }
+    }
+
+    async function handleSaveAs(file: FileEntry) {
+        try {
             const localPath = await save({
                 defaultPath: file.name
             });
@@ -159,7 +181,7 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
                     key: file.path,
                     localPath
                 });
-                alert("Download started");
+                console.log(`Started download to ${localPath}`);
             }
         } catch (e) {
             alert("Download failed: " + e);
@@ -181,6 +203,11 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
                         label: "Download", 
                         icon: <Download size={14} />,
                         action: () => handleDownload(file) 
+                    },
+                    { 
+                        label: "Save As...", 
+                        icon: <Save size={14} />,
+                        action: () => handleSaveAs(file) 
                     },
                     { 
                         label: "Copy Path", 
@@ -208,7 +235,7 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
                     { 
                         label: "Upload Files", 
                         icon: <Upload size={14} />,
-                        disabled: true, // Not implemented yet via dialog
+                        disabled: true, 
                         action: () => {} 
                     }
                 ]
