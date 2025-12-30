@@ -1,5 +1,6 @@
 # OSS Manager
-
+[![Release All](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml)
+[![Build and Release CLI](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml) <br>
 **OSS Manager** 是一款面向 S3 兼容对象存储服务的高性能、跨平台管理解决方案。本项目旨在提供一个统一的生态系统，包含健壮的核心逻辑库、灵活的命令行工具（CLI）以及现代化的桌面图形客户端（GUI）。
 
 ## 项目架构
