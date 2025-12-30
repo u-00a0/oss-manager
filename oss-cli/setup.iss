@@ -21,10 +21,12 @@ PrivilegesRequired=admin
 OutputBaseFilename=mysetup
 Compression=lzma
 SolidCompression=yes
-WizardStyle=modern
 ChangesEnvironment=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
+LicenseFile="..\LICENSE"
+WizardStyle=modern windows11
+PrivilegesRequiredOverridesAllowed=commandline
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
