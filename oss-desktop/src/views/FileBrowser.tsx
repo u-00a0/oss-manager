@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -47,6 +47,11 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
     const [error, setError] = useState("");
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     
+    // Path Editing State
+    const [isEditingPath, setIsEditingPath] = useState(false);
+    const [pathInput, setPathInput] = useState("");
+    const inputRef = useRef<HTMLInputElement>(null);
+    
     // Context Menu State
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, items: MenuItem[] } | null>(null);
 
@@ -63,6 +68,14 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
             );
         }
     }, [isActive, files.length, loading, bucket, setLeftItem]);
+
+    // Focus input when editing starts
+    useEffect(() => {
+        if (isEditingPath && inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
+    }, [isEditingPath]);
 
     useEffect(() => {
         loadFiles();
@@ -173,7 +186,7 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
     }
     
     async function handleDelete(file: FileEntry) {
-        if (!confirm(`Are you sure you want to delete ${file.name}?`)) return;
+        if (!confirm(`Are you sure you want to delete ${file.name}?`)) return; 
         
         const notifId = addNotification({
             title: `Deleting ${file.name}...`,
@@ -292,17 +305,17 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
             setContextMenu({
                 x, y,
                 items: [
-                    { 
+                    {
                         label: "Download", 
                         icon: <Download size={14} />,
                         action: () => handleDownload(file) 
                     },
-                    { 
+                    {
                         label: "Save As...", 
                         icon: <Save size={14} />,
                         action: () => handleSaveAs(file) 
                     },
-                    { 
+                    {
                         label: "Copy Path", 
                         icon: <Copy size={14} />,
                         action: () => {
@@ -311,7 +324,7 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
                         }
                     },
                     { separator: true, label: "" },
-                    { 
+                    {
                         label: "Delete", 
                         icon: <Trash2 size={14} />,
                         danger: true,
@@ -323,12 +336,12 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
              setContextMenu({
                 x, y,
                 items: [
-                    { 
+                    {
                         label: "Refresh", 
                         icon: <RefreshCw size={14} />,
                         action: loadFiles 
                     },
-                    { 
+                    {
                         label: "Upload Files", 
                         icon: <Upload size={14} />,
                         disabled: true, 
@@ -336,6 +349,37 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
                     }
                 ]
             });
+        }
+    }
+    
+    // Path Bar Handlers
+    function startEditingPath() {
+        setPathInput(prefix);
+        setIsEditingPath(true);
+    }
+
+    function handlePathSubmit() {
+        let newPath = pathInput.trim();
+        // Normalize separators
+        newPath = newPath.replace(/\/g, "/");
+        // Remove leading slash if user typed absolute path style
+        if (newPath.startsWith("/")) newPath = newPath.substring(1);
+        
+        // Ensure directory convention (ends with /) unless empty
+        // Assumption: User inputs directory path. If they want to go to root, input empty.
+        if (newPath.length > 0 && !newPath.endsWith("/")) {
+            newPath += "/";
+        }
+        
+        setPrefix(newPath);
+        setIsEditingPath(false);
+    }
+    
+    function handlePathKeyDown(e: React.KeyboardEvent) {
+        if (e.key === "Enter") {
+            handlePathSubmit();
+        } else if (e.key === "Escape") {
+            setIsEditingPath(false);
         }
     }
 
@@ -407,42 +451,69 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
             )}
 
             {/* Toolbar */}
-            <div className="h-10 border-b border-[#2d2d2d] flex items-center px-4 justify-between bg-[#252526]">
-                {/* Navigation */}
-                <div className="flex items-center space-x-2 text-sm overflow-hidden">
-                    <button
-                        className="p-1 hover:bg-[#3c3c3c] rounded disabled:opacity-50"
-                        onClick={handleUp}
-                        disabled={!prefix}
-                        title="Up"
-                    >
-                        <ArrowUp size={16} />
-                    </button>
+            <div className="h-10 border-b border-[#2d2d2d] flex items-center px-4 gap-2 bg-[#252526]">
+                {/* Up Button */}
+                <button
+                    className="p-1 hover:bg-[#3c3c3c] rounded disabled:opacity-50 text-[#cccccc] shrink-0"
+                    onClick={handleUp}
+                    disabled={!prefix}
+                    title="Up"
+                >
+                    <ArrowUp size={16} />
+                </button>
 
-                    <div className="flex items-center">
-                        <span
-                            className="cursor-pointer hover:text-white flex items-center"
-                            onClick={() => handleBreadcrumb(-1)}
-                        >
-                            <Home size={14} className="mr-1" />
-                            {bucket}
-                        </span>
-                        {breadcrumbs.map((part, index) => (
-                            <div key={index} className="flex items-center">
-                                <ChevronRight size={14} className="text-[#858585] mx-1" />
-                                <span
-                                    className="cursor-pointer hover:text-white"
-                                    onClick={() => handleBreadcrumb(index)}
-                                >
-                                    {part}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
+                {/* Path Bar */}
+                <div 
+                    className={clsx(
+                        "flex-1 flex items-center h-7 bg-[#1e1e1e] border rounded px-2 overflow-hidden text-sm transition-colors",
+                        isEditingPath ? "border-[#007fd4] ring-1 ring-[#007fd4]" : "border-[#3c3c3c] cursor-text hover:border-[#505050]"
+                    )}
+                    onClick={!isEditingPath ? startEditingPath : undefined}
+                >
+                    {isEditingPath ? (
+                        <input
+                            ref={inputRef}
+                            className="w-full bg-transparent border-none outline-none text-[#cccccc] font-mono p-0 h-full"
+                            value={pathInput}
+                            onChange={(e) => setPathInput(e.target.value)}
+                            onKeyDown={handlePathKeyDown}
+                            onBlur={() => setIsEditingPath(false)}
+                            spellCheck={false}
+                        />
+                    ) : (
+                        <div className="flex items-center w-full h-full overflow-hidden">
+                            <span
+                                className="cursor-pointer hover:bg-[#3c3c3c] hover:text-white px-1 rounded flex items-center shrink-0"
+                                onClick={(e) => { e.stopPropagation(); handleBreadcrumb(-1); }}
+                                title={`Bucket: ${bucket}`}
+                            >
+                                <Home size={14} className="mr-1" />
+                                {bucket}
+                            </span>
+                            
+                            {breadcrumbs.length > 0 && (
+                                <ChevronRight size={14} className="text-[#858585] mx-0.5 shrink-0" />
+                            )}
+
+                            {breadcrumbs.map((part, index) => (
+                                <div key={index} className="flex items-center shrink-0">
+                                    <span
+                                        className="cursor-pointer hover:bg-[#3c3c3c] hover:text-white px-1 rounded"
+                                        onClick={(e) => { e.stopPropagation(); handleBreadcrumb(index); }}
+                                    >
+                                        {part}
+                                    </span>
+                                    {index < breadcrumbs.length - 1 && (
+                                        <ChevronRight size={14} className="text-[#858585] mx-0.5" />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 shrink-0">
                     <button
                         className={clsx("p-1.5 rounded hover:bg-[#3c3c3c]", viewMode === "list" && "bg-[#3c3c3c] text-white")}
                         onClick={() => setViewMode("list")}
@@ -470,9 +541,6 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
             {/* Content */}
             <div className="flex-1 overflow-auto p-2" onContextMenu={(e) => {
                  // Prevent background context menu from triggering when clicking on list/grid items container
-                 // But wait, we want the background context menu here!
-                 // The items themselves stop propagation.
-                 // So this is fine.
             }}>
                 {error && <div className="text-red-500 p-4">Error: {error}</div>}
 
