@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Info, CheckCircle, AlertTriangle, AlertCircle, Loader2 } from 'lucide-react';
-import { Notification, useNotification } from '../contexts/NotificationContext';
+import { useNotification } from '../contexts/NotificationContext';
+import type { Notification } from '../contexts/NotificationContext';
 
 const icons = {
     info: <Info size={16} className="text-blue-400" />,
