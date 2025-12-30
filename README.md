@@ -1,45 +1,45 @@
 # OSS Manager
 
-**OSS Manager** is a high-performance, cross-platform object storage management solution designed for S3-compatible services. It provides a comprehensive ecosystem consisting of a robust core library, a flexible command-line interface, and a modern desktop graphical user interface.
+**OSS Manager** 是一款面向 S3 兼容对象存储服务的高性能、跨平台管理解决方案。本项目旨在提供一个统一的生态系统，包含健壮的核心逻辑库、灵活的命令行工具（CLI）以及现代化的桌面图形客户端（GUI）。
 
-## Project Architecture
+## 项目架构
 
-The project is organized as a Rust Workspace containing the following components:
+本项目采用 Rust Workspace 模式组织，由以下核心组件构成：
 
-*   **`oss-core`**: The foundational library implementing the core business logic, including S3 client abstraction, transfer management, database persistence, and configuration handling.
-*   **`oss-cli`**: A feature-rich terminal application built upon `oss-core`, providing scripting capabilities and efficient file operations.
-*   **`oss-desktop`**: A modern GUI application built with **Tauri 2** and **React 19**, offering a VS Code-like experience for file management, visualization, and resumable transfers.
+*   **`oss-core`**：核心逻辑库。封装了 S3 协议交互、传输状态管理、本地数据库持久化及配置处理等底层逻辑。
+*   **`oss-cli`**：命令行交互终端。基于 `oss-core` 构建，提供高效的文件操作指令，适用于自动化脚本及高级用户。
+*   **`oss-desktop`**：桌面客户端。基于 **Tauri 2** 与 **React 19** 构建，提供类 VS Code 的现代化操作体验，支持可视化管理、实时预览及多任务并行。
 
-## Key Features
+## 关键特性
 
-*   **Broad Compatibility**: Supports AWS S3, Aliyun OSS, Tencent COS, Cloudflare R2, and generic S3 providers.
-*   **High Performance**: Implements concurrent transfer logic with multipart upload/download support and checkpoint-based resumability.
-*   **Cross-Platform**: Builds for Windows, Linux, and macOS.
-*   **Unified Configuration**: Profiles and task history are shared between the CLI and Desktop applications.
+*   **广泛的兼容性**：完美支持 AWS S3、阿里云 OSS、腾讯云 COS、Cloudflare R2 以及任何遵循 S3 协议的存储服务。
+*   **高性能传输引擎**：内置并发控制与分片上传/下载逻辑，支持断点续传与任务校验。
+*   **跨平台支持**：支持 Windows、Linux 及 macOS 原生编译。
+*   **统一配置管理**：CLI 与桌面端共享相同的存储配置文件与传输任务历史。
 
-## Prerequisites
+## 构建先决条件
 
-To build the project from source, ensure the following dependencies are installed:
+在从源码构建本项目之前，请确保环境中已安装以下依赖：
 
-*   **Rust**: Stable toolchain (1.75+ recommended).
-*   **Node.js**: LTS version (v20+ recommended) for the desktop frontend.
-*   **System Dependencies**:
-    *   **Windows**: CMake, Inno Setup (for packaging).
-    *   **Linux**: `build-essential`, `libgtk-3-dev`, `libwebkit2gtk-4.0-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`.
+*   **Rust**: 稳定版编译器（建议 v1.75+）。
+*   **Node.js**: 长期支持版（建议 v20+），用于构建桌面端前端。
+*   **系统级依赖**:
+    *   **Windows**: 需要安装 CMake 和 Inno Setup（用于打包安装程序）。
+    *   **Linux**: 需要安装 `build-essential` 以及图形库开发包：`libgtk-3-dev`, `libwebkit2gtk-4.0-dev`, `libappindicator3-dev`, `librsvg2-dev` 等。
 
-## Build Instructions
+## 构建指南
 
-### 1. Build the Workspace
+### 1. 构建全项目二进制文件
 
-Compile the Rust binaries for `oss-core` and `oss-cli`:
+在根目录下执行以下命令编译 Rust 相关组件：
 
 ```bash
 cargo build --release
 ```
 
-### 2. Build the Desktop Application
+### 2. 构建桌面应用程序
 
-The desktop application requires building both the React frontend and the Tauri backend:
+桌面端需要独立进行前端安装与 Tauri 打包：
 
 ```bash
 cd oss-desktop
@@ -47,10 +47,6 @@ npm install
 npm run tauri build
 ```
 
-## Contributing
+## 许可证
 
-Contributions are welcome. Please ensure that any code changes are accompanied by relevant unit tests and that all existing tests pass.
-
-## License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+本项目采用 MIT 许可证。详情请参阅 `LICENSE` 文件。

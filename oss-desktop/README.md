@@ -1,68 +1,63 @@
 # OSS Manager Desktop
 
-**OSS Manager Desktop** is a modern, cross-platform graphical user interface for managing object storage. Built with **Tauri 2** and **React 19**, it combines the performance of a native Rust backend with the flexibility of a modern web frontend.
+**OSS Manager Desktop** 是一款现代化、跨平台的对象存储图形化管理客户端。它基于 **Tauri 2** 架构构建，将原生 Rust 的性能优势与 **React 19** 灵动的 Web 前端交互完美结合。
 
-## Key Features
+## 核心功能
 
-### 1. File Browser
-*   **Navigation**: Breadcrumb bar with editable path support (Click to edit, Enter to jump).
-*   **Views**: Toggle between List and Grid views.
-*   **Drag & Drop**: Supports uploading files and folders by dragging them into the window.
-*   **Context Menu**:
-    *   Right-click on files to Download, Copy Path, or Delete.
-    *   Right-click on background to Refresh.
+### 1. 深度集成的文件浏览器
+*   **交互式导航**: 面包屑路径栏支持直接点击跳转，亦可点击空白处切换至“输入模式”手动输入路径。
+*   **多维视图**: 提供“列表”与“网格”两种布局模式，适应不同数量级的文件管理。
+*   **拖拽上传**: 支持从系统文件管理器直接拖拽文件或文件夹至窗口，实现即时上传。
+*   **右键菜单**: 集成了常用快捷操作（下载、另存为、复制路径、删除、刷新等）。
 
-### 2. File Preview & Details
-*   **Double-Click**: Open files in a new tab to view details.
-*   **Preview**:
-    *   **Images**: Native preview for PNG, JPG, SVG, etc.
-    *   **Text/Code**: Syntax highlighting for code and text files (limited to <5MB).
-*   **Metadata**: View ETag, Size, Last Modified, and Content-Type.
+### 2. 文件实时预览与详情
+*   **双击体验**: 双击文件即可开启新标签页，深入查看文件元数据（ETag, MIME 类型等）。
+*   **智能预览**:
+    *   **图像**: 支持主流格式（PNG, JPG, SVG, WebP）的直接渲染。
+    *   **代码/文本**: 支持 5MB 以内的纯文本及代码文件内容查看。
 
-### 3. Transfer Management
-*   **Status Bar**: Real-time display of file counts and sync status.
-*   **Notifications**:
-    *   Non-intrusive toast notifications for success/error events.
-    *   Progress bars for ongoing Uploads and Downloads in the notification center.
-    *   Toggleable notification center via the status bar bell icon.
+### 3. 全局通知与传输监控
+*   **状态反馈**: 底部集成全局状态栏，实时同步当前目录的文件总数及同步状态。
+*   **通知系统**: 类 VS Code 的右下角弹窗通知，支持操作队列的堆叠显示。
+*   **进度控制**: 针对下载/上传任务，通知中心提供可视化的进度条显示。
 
-### 4. Tab System
-*   **Multi-Tab Interface**: Open multiple buckets or file details simultaneously.
-*   **Split View & Drag**: Reorder tabs or drag them out to create new windows (Tauri multi-window support).
+### 4. 多任务标签系统
+*   **多标签页**: 支持同时开启多个存储桶或文件详情页，轻松切换。
+*   **多窗口分离**: 允许将标签页“拖拽”出主窗口，生成独立的子窗口。
 
-## Development Guide
+## 开发者指南
 
-### Prerequisites
+### 环境要求
 *   Node.js (v20+)
-*   Rust (Latest Stable)
+*   Rust (最新稳定版)
 *   Tauri CLI: `npm install -g @tauri-apps/cli`
 
-### Setup
+### 环境初始化
 
 ```bash
 cd oss-desktop
 npm install
 ```
 
-### Run in Development Mode
+### 进入开发模式
 
-Starts the Vite dev server and the Tauri backend with hot-reloading.
+启动 Vite 开发服务器并同步开启 Tauri 调试窗口：
 
 ```bash
 npm run tauri dev
 ```
 
-### Build for Production
+### 打包发布
 
-Builds the frontend and packages the application into an installer (MSI/EXE on Windows, Deb/AppImage on Linux).
+生成生产环境安装程序（Windows 生成 .exe，Linux 生成 .deb/.AppImage）：
 
 ```bash
 npm run tauri build
 ```
 
-## Tech Stack
+## 技术栈选型
 
-*   **Frontend**: React 19, TypeScript, Tailwind CSS v4, Lucide React (Icons).
-*   **State Management**: React Context API (NotificationContext, SearchContext, StatusBarContext).
-*   **Backend**: Rust (Tauri), leveraging `oss-core`.
-*   **Packaging**: Inno Setup (Windows), Tauri Bundler (Linux).
+*   **前端框架**: React 19, TypeScript
+*   **样式方案**: Tailwind CSS v4
+*   **图标系统**: Lucide React
+*   **跨平台引擎**: Tauri 2 (Rust)
