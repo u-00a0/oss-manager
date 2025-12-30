@@ -1,5 +1,5 @@
 [workspace]
 members = ["oss-cli",
-    "oss-core", "oss-desktop",
+    "oss-core", "oss-desktop/src-tauri",
 ]
 resolver = "2"

@@ -18,6 +18,10 @@ pub struct Profile {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ConfigManager {
     pub profiles: HashMap<String, Profile>,
+    #[serde(default)]
+    pub language: String, // "en" or "zh"
+    #[serde(default)]
+    pub default_download_dir: String,
 }
 
 impl ConfigManager {

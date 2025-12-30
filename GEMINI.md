@@ -13,7 +13,12 @@ The project is organized as a Rust Workspace with the following members:
 *   **`oss-cli`**: A command-line interface built on top of `oss-core`.
     *   Provides commands like `cp`, `mv`, `rm`, `ls`, `tree`.
     *   Manages configuration profiles interactively.
-*   **`oss-desktop`**: (Currently a placeholder) Intended for a GUI application.
+    *   **Packaging**:
+        *   Contains `package.metadata.deb` for building Debian packages (`.deb`).
+        *   Contains `setup.iss` for building Windows installers using Inno Setup.
+*   **`oss-desktop`**: GUI application (Planned).
+    *   Built with Tauri, pnpm, and React 19.
+    *   Aims for a VSCode-like file management experience covering all core functionalities.
 
 ## Build and Run Instructions
 
@@ -48,6 +53,9 @@ The project is organized as a Rust Workspace with the following members:
 *   **`src/lib.rs`**: Entry point, exports modules and the `create_client` factory.
 *   **`src/config.rs`**: Manages user profiles (JSON serialization).
 *   **`src/db.rs`**: SQLite database interaction using `sqlx`. Defines `Task` and `Part` schemas.
+*   **`migrations/`**: Contains SQL migration scripts managed by `sqlx`.
+    *   Creates `tasks` table: tracks file path, remote key, bucket, size, and status.
+    *   Creates `parts` table: tracks multipart upload progress (start/end bytes, etag).
 *   **`src/ops.rs`**: Low-level S3 operations wrapper (List, Copy, Delete).
 *   **`src/transfer.rs`**: High-level orchestration. Contains `TransferManager` which handles recursion and logic for `upload`, `download`, `copy_cloud`, `move_cloud`, `remove`.
 *   **`src/uploader.rs`**: Implements `ResumableUploader` (Multipart Upload with state sync).
@@ -60,6 +68,32 @@ The project is organized as a Rust Workspace with the following members:
     *   Uses `inquire` for interactive prompts (e.g., `oss-cli add`).
     *   Uses `tracing` for logging output.
     *   Dispatches commands to `TransferManager` or `ConfigManager`.
+
+### `oss-desktop` (Planned GUI)
+
+**Technology Stack**
+*   **Frontend**: React 19, TypeScript, pnpm.
+*   **Backend**: Rust (Tauri), utilizing `oss-core`.
+*   **Design System**: VSCode-like layout and interaction model.
+
+**UI/UX Requirements**
+*   **Layout**:
+    *   **Top Menu**: Standard application menu.
+    *   **Side Bar (Activity Bar)**: Leftmost vertical strip for switching views (Files, Buckets, Profiles, Settings).
+    *   **Primary Side Panel**: Expandable panel next to Activity Bar (e.g., file tree, bucket list).
+    *   **Main Content Area**: Tabbed interface for file browsing and operations.
+    *   **Bottom Panel**: Terminal (invoking `oss-cli`) and Log/Task Output.
+*   **Tab System**:
+    *   Comprehensive multi-tab support (Drag & Drop sorting).
+    *   Split-view support (Drag to split).
+    *   Multi-window support (Drag tab out to create new window, drag in to merge).
+
+**Functional Requirements**
+*   **Full `oss-core` Coverage**:
+    *   Profile Management (Add/Edit/Remove/Switch).
+    *   File/Bucket Browser (Recursive listing, Tree view).
+    *   Transfer Operations (Upload, Download, Copy, Move, Remove) with resumable support.
+    *   Task Management (View active/completed tasks, Pause/Resume/Cancel).
 
 ## Development Conventions
 
