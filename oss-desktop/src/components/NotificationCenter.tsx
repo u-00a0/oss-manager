@@ -1,7 +1,6 @@
-import React from 'react';
 import { useNotification } from '../contexts/NotificationContext';
 import NotificationItem from './NotificationItem';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 export default function NotificationCenter() {
     const { notifications, isVisible, toggleVisibility } = useNotification();
@@ -21,7 +20,7 @@ export default function NotificationCenter() {
                     </div>
                 </div>
             )}
-            
+
             <div className="flex flex-col items-end overflow-y-auto w-[320px] pr-1 pb-2 pointer-events-none">
                 {notifications.map(notification => (
                     <NotificationItem key={notification.id} notification={notification} />

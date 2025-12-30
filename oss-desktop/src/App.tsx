@@ -73,7 +73,8 @@ function AppContent() {
       setSearchQuery("");
   }, [activeTabId, setSearchQuery]);
 
-  // Track if we are currently dragging a tab that might be claimed  const pendingDropRef = useRef<{ id: string, claimed: boolean } | null>(null);
+  // Track if we are currently dragging a tab that might be claimed
+  const pendingDropRef = useRef<{ id: string, claimed: boolean } | null>(null);
 
   useEffect(() => {
     const win = getCurrentWindow();
@@ -314,25 +315,28 @@ function AppContent() {
             });
         };
       
-  const renderTabContent = (tab: Tab, isActive: boolean) => {
-      switch (tab.type) {
-          case "file-browser":
-              if (!tab.data) return <div>{t("error")}: Missing tab data</div>;
-              return <FileBrowser 
-                        profile={tab.data.profile} 
-                        bucket={tab.data.bucket} 
-                        isActive={isActive} 
-                        onOpenFile={(key) => handleOpenFile(tab.data.profile!, tab.data.bucket!, key)}
-                     />;
-          case "file-details":
-              if (!tab.data || !tab.data.fileKey) return <div>{t("error")}: Missing file key</div>;
-              return <FileDetails 
-                        profile={tab.data.profile} 
-                        bucket={tab.data.bucket} 
-                        fileKey={tab.data.fileKey} 
-                     />;
-          case "profiles":
-              return <ProfilesView />;
+    const renderTabContent = (tab: Tab, isActive: boolean) => {
+        switch (tab.type) {
+            case "file-browser": {
+                const data = tab.data;
+                if (!data) return <div>{t("error")}: Missing tab data</div>;
+                return <FileBrowser
+                          profile={data.profile}
+                          bucket={data.bucket}
+                          isActive={isActive}
+                          onOpenFile={(key) => handleOpenFile(data.profile, data.bucket, key)}
+                       />;
+            }
+            case "file-details": {
+                const data = tab.data;
+                if (!data || !data.fileKey) return <div>{t("error")}: Missing file key</div>;
+                return <FileDetails
+                          profile={data.profile}
+                          bucket={data.bucket}
+                          fileKey={data.fileKey}
+                       />;
+            }
+            case "profiles":              return <ProfilesView />;
           case "settings":
               return <SettingsView />;
           default:

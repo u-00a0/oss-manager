@@ -548,9 +548,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-auto p-2" onContextMenu={(e) => {
-                 // Prevent background context menu from triggering when clicking on list/grid items container
-            }}>
+            <div className="flex-1 overflow-auto p-2">
                 {error && <div className="text-red-500 p-4">Error: {error}</div>}
 
                 {filteredFiles.length === 0 && !loading && !error && (

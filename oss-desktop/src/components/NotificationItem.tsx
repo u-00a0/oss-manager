@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, Info, CheckCircle, AlertTriangle, AlertCircle, Loader2 } from 'lucide-react';
 import { useNotification } from '../contexts/NotificationContext';
 import type { Notification } from '../contexts/NotificationContext';
@@ -33,13 +32,13 @@ export default function NotificationItem({ notification }: { notification: Notif
                     <X size={14} />
                 </button>
             </div>
-            
+
             {/* Progress Bar */}
             {notification.type === 'progress' && (
                 <div className="h-1 w-full bg-[#3c3c3c] overflow-hidden relative">
                     {notification.progress !== undefined ? (
-                        <div 
-                            className="h-full bg-[#007fd4] transition-all duration-300" 
+                        <div
+                            className="h-full bg-[#007fd4] transition-all duration-300"
                             style={{ width: `${notification.progress}%` }}
                         />
                     ) : (
