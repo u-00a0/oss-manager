@@ -1,10 +1,12 @@
 name: Release All
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag Name (e.g., v1.0.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -37,7 +39,7 @@ jobs:
       - name: Build Deb
         run: |
           mkdir -p dist-cli
-          cargo deb -p oss-cli --no-build --output dist-cli/oss-manager-cli_${{ github.ref_name }}_amd64.deb
+          cargo deb -p oss-cli --no-build --output dist-cli/oss-manager-cli_${{ inputs.tag_name }}_amd64.deb
       - uses: actions/upload-artifact@v4
         with:
           name: linux-cli
@@ -52,7 +54,6 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          # Use libwebkit2gtk-4.1-dev for Tauri v2
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -103,12 +104,12 @@ jobs:
       - name: Package CLI (Inno Setup)
         shell: cmd
         run: |
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "oss-cli\setup.iss" "/Odist-win" "/Foss-manager-cli_${{ github.ref_name }}_x64_setup" "/DMyAppVersion=${{ github.ref_name }}"
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "oss-cli\setup.iss" "/Odist-win" "/Foss-manager-cli_${{ inputs.tag_name }}_x64_setup" "/DMyAppVersion=${{ inputs.tag_name }}"
 
       - name: Package Desktop+CLI (Inno Setup)
         shell: cmd
         run: |
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "oss-desktop\setup.iss" "/Odist-win" "/Foss-manager-desktop_${{ github.ref_name }}_x64_setup" "/DMyAppVersion=${{ github.ref_name }}"
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "oss-desktop\setup.iss" "/Odist-win" "/Foss-manager-desktop_${{ inputs.tag_name }}_x64_setup" "/DMyAppVersion=${{ inputs.tag_name }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -119,7 +120,6 @@ jobs:
     name: Publish Release
     needs: [build-linux-cli, build-linux-desktop, build-windows]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -131,10 +131,12 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ inputs.tag_name }}
+          name: Release ${{ inputs.tag_name }}
+          draft: false
+          prerelease: false
           files: |
             artifacts/linux-cli/*
             artifacts/linux-desktop/*
             artifacts/windows-installers/*
-          draft: false
-          prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
