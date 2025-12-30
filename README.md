@@ -1,7 +1,7 @@
 # OSS Manager
 [![Release All](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml)
 [![Build and Release CLI](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml) <br>
-**OSS Manager** 是一款面向 S3 兼容对象存储服务的高性能、跨平台管理解决方案。本项目旨在提供一个统一的生态系统，包含健壮的核心逻辑库、灵活的命令行工具（CLI）以及现代化的桌面图形客户端（GUI）。
+OSS Manager 是一套基于 Rust 语言开发的高性能对象存储（S3 兼容）文件传输解决方案。本项目旨在提供可靠、高效且跨平台的文件管理能力，支持断点续传、并发传输控制、递归目录操作以及多云厂商适配。
 
 ## 项目架构
 
@@ -15,7 +15,7 @@
 
 *   **广泛的兼容性**：完美支持 AWS S3、阿里云 OSS、腾讯云 COS、Cloudflare R2 以及任何遵循 S3 协议的存储服务。
 *   **高性能传输引擎**：内置并发控制与分片上传/下载逻辑，支持断点续传与任务校验。
-*   **跨平台支持**：支持 Windows、Linux 及 macOS 原生编译。
+*   **跨平台支持**：支持 Windows 与 Linux，Android 客户端另行筹备中。
 *   **统一配置管理**：CLI 与桌面端共享相同的存储配置文件与传输任务历史。
 
 ## 构建先决条件
@@ -50,4 +50,4 @@ npm run tauri build
 
 ## 许可证
 
-本项目采用 MIT 许可证。详情请参阅 `LICENSE` 文件。
+本项目采用 Apache-2.0 license 许可证。详情请参阅 `LICENSE` 文件。
