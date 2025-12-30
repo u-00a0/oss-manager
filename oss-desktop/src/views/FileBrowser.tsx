@@ -361,7 +361,7 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
     function handlePathSubmit() {
         let newPath = pathInput.trim();
         // Normalize separators
-        newPath = newPath.replace(/\/g, "/");
+        newPath = newPath.replace(/\\/g, "/");
         // Remove leading slash if user typed absolute path style
         if (newPath.startsWith("/")) newPath = newPath.substring(1);
         
