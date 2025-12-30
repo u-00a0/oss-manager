@@ -1,79 +1,72 @@
-# OSS Core 开发文档
+# OSS Core
 
-`oss-core` 是 OSS Manager 的核心库，提供了一套基于 `aws-sdk-s3` 的高层抽象，旨在简化构建高性能、可靠的 S3 文件传输应用。
+**`oss-core`** is the underlying library for the OSS Manager ecosystem, encapsulating the complexity of S3 interactions, state management, and transfer logic. It relies on `aws-sdk-s3` for protocol communication and `sqlx` (SQLite) for local state persistence.
 
-## 1. 核心设计理念
+## Architecture Modules
 
-*   **状态持久化**: 摒弃内存状态管理，使用 SQLite 持久化所有传输任务（Task）和分片（Part）状态，确保断点续传的可靠性。
-*   **并发控制**: 使用 `tokio::sync::Semaphore` 实现精确的并发请求限制，防止在大规模递归操作中耗尽系统资源。
-*   **机械细节屏蔽**: 固定分块大小（10MB），将性能调优的重心放在并发数控制上，简化调用者逻辑。
+### 1. `config`
+Manages user profiles and application settings. Supports encryption of sensitive credentials (future roadmap) and JSON-based serialization.
 
-## 2. 核心模块
+*   **Profiles**: Stores Access Key, Secret Key, Region, Endpoint, and Provider type.
+*   **Settings**: Manages global preferences like default download paths and language.
 
-### 2.1 客户端构建 (`lib.rs`)
+### 2. `ops` (Operations)
+Provides a high-level abstraction over raw S3 SDK calls.
 
-提供了 `create_client` 工厂函数，封装了针对不同云厂商的优化配置（如 Endpoint 解析、Path Style 强制等）。
+*   **Bucket Operations**: List, Create, Delete buckets.
+*   **Object Operations**: List objects (with delimiter support), Head object, Delete object.
+*   **Provider Adaptations**: Handles minor protocol differences between cloud providers (e.g., Aliyun CNAME behavior).
 
-```rust
-use oss_core::{create_client, S3Provider};
+### 3. `transfer`
+The core engine for file transmission.
 
-let client = create_client(
-    S3Provider::Aliyun,
-    "AK", "SK", "region", None
-);
-```
+*   **Upload**: Supports recursive directory uploads, multipart uploads for large files, and concurrency control.
+*   **Download**: Implements ranged GET requests for parallel downloading and resumable support.
+*   **Resumability**: Automatically tracks transfer progress in the local SQLite database.
 
-### 2.2 数据库层 (`db.rs`)
+### 4. `db`
+Persistence layer using `sqlx`.
 
-基于 `sqlx` (SQLite) 实现。
+*   **Schema**:
+    *   `tasks`: Tracks file-level transfer status (Pending, Running, Paused, Completed, Failed).
+    *   `parts`: Tracks chunk-level status for multipart transfers.
 
-*   **Task 表**: 记录文件级别的传输任务（上传/下载），包含总大小、状态、Upload ID 等。
-*   **Part 表**: 记录分片级别的状态，包含 Start/End Byte、ETag 等。
-*   **Repository**: 提供了 `create_task`, `get_incomplete_parts`, `mark_part_completed` 等原子操作。
-
-### 2.3 传输逻辑
-
-#### 上传 (`uploader.rs`)
-实现了 `ResumableUploader`。
-1.  **检查**: 查询 DB 是否存在未完成任务。
-2.  **同步**: 若存在 Upload ID，调用 `ListParts` 同步服务端状态，避免重复上传。
-3.  **并发**: 使用信号量控制并发上传缺失分片。
-4.  **完成**: 调用 `CompleteMultipartUpload`。
-
-#### 下载 (`downloader.rs`)
-实现了 `Downloader`。
-1.  **分片**: 逻辑上将文件切分为固定大小的 Range。
-2.  **并发**: 并发发送 Range Get 请求。
-3.  **写入**: 使用 `tokio::fs::File` 的 `seek` 功能将数据写入指定偏移量。
-
-#### 传输管理 (`transfer.rs`)
-`TransferManager` 是最高层的门面模式（Facade），封装了复杂的业务逻辑：
-*   **递归操作**: 使用 `walkdir` (本地) 或 `list_objects` (云端) 遍历目录。
-*   **跨桶复制**: 实现了"下载-中转-上传"的流水线逻辑。
-*   **移动操作**: 封装了 Copy + Delete 的事务性逻辑（尽力而为）。
-*   **删除操作**: 支持前缀递归删除和批量删除（DeleteObjects）。
-
-## 3. 开发指南
-
-### 添加依赖
-```toml
-[dependencies]
-oss-core = { path = "../oss-core" }
-```
-
-### 数据库迁移
-在使用 `TaskRepository` 前，必须运行迁移以初始化表结构：
+## Usage Example
 
 ```rust
-let repo = TaskRepository::new(pool);
-repo.migrate().await?;
+use oss_core::{create_client, config::ConfigManager, ops::S3Ops};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Load Configuration
+    let config = ConfigManager::load_from_file(&path)?;
+    let profile = config.get_profile("my-profile").unwrap();
+
+    // 2. Initialize Client
+    let client = create_client(
+        profile.provider,
+        profile.access_key.clone(),
+        profile.secret_key.clone(),
+        profile.region.clone(),
+        profile.endpoint.clone(),
+    );
+
+    // 3. Perform Operations
+    let ops = S3Ops::new(client);
+    let objects = ops.list_objects("my-bucket", "", false).await?;
+    
+    for obj in objects {
+        println!("Key: {:?}", obj.key);
+    }
+
+    Ok(())
+}
 ```
 
-### 示例：实现自定义上传
+## Testing
 
-```rust
-use oss_core::transfer::TransferManager;
+Unit and integration tests are provided. Ensure the test environment is configured or use mocked credentials where applicable.
 
-let tm = TransferManager::new(client, repo);
-tm.upload(Path::new("large_file.iso"), "bucket", "key", false, 8).await?;
+```bash
+cargo test -p oss-core
 ```

@@ -1,73 +1,68 @@
-# React + TypeScript + Vite
+# OSS Manager Desktop
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**OSS Manager Desktop** is a modern, cross-platform graphical user interface for managing object storage. Built with **Tauri 2** and **React 19**, it combines the performance of a native Rust backend with the flexibility of a modern web frontend.
 
-Currently, two official plugins are available:
+## Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 1. File Browser
+*   **Navigation**: Breadcrumb bar with editable path support (Click to edit, Enter to jump).
+*   **Views**: Toggle between List and Grid views.
+*   **Drag & Drop**: Supports uploading files and folders by dragging them into the window.
+*   **Context Menu**:
+    *   Right-click on files to Download, Copy Path, or Delete.
+    *   Right-click on background to Refresh.
 
-## React Compiler
+### 2. File Preview & Details
+*   **Double-Click**: Open files in a new tab to view details.
+*   **Preview**:
+    *   **Images**: Native preview for PNG, JPG, SVG, etc.
+    *   **Text/Code**: Syntax highlighting for code and text files (limited to <5MB).
+*   **Metadata**: View ETag, Size, Last Modified, and Content-Type.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 3. Transfer Management
+*   **Status Bar**: Real-time display of file counts and sync status.
+*   **Notifications**:
+    *   Non-intrusive toast notifications for success/error events.
+    *   Progress bars for ongoing Uploads and Downloads in the notification center.
+    *   Toggleable notification center via the status bar bell icon.
 
-## Expanding the ESLint configuration
+### 4. Tab System
+*   **Multi-Tab Interface**: Open multiple buckets or file details simultaneously.
+*   **Split View & Drag**: Reorder tabs or drag them out to create new windows (Tauri multi-window support).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Development Guide
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Prerequisites
+*   Node.js (v20+)
+*   Rust (Latest Stable)
+*   Tauri CLI: `npm install -g @tauri-apps/cli`
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Setup
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd oss-desktop
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Run in Development Mode
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Starts the Vite dev server and the Tauri backend with hot-reloading.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run tauri dev
 ```
+
+### Build for Production
+
+Builds the frontend and packages the application into an installer (MSI/EXE on Windows, Deb/AppImage on Linux).
+
+```bash
+npm run tauri build
+```
+
+## Tech Stack
+
+*   **Frontend**: React 19, TypeScript, Tailwind CSS v4, Lucide React (Icons).
+*   **State Management**: React Context API (NotificationContext, SearchContext, StatusBarContext).
+*   **Backend**: Rust (Tauri), leveraging `oss-core`.
+*   **Packaging**: Inno Setup (Windows), Tauri Bundler (Linux).
