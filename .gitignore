@@ -16,7 +16,6 @@ config.json
 .vscode/
 .idea/
 *.swp
-/oss-desktop/
 
 node_modules/
 dist/
