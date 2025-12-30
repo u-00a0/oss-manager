@@ -7,6 +7,7 @@ import type { FileEntry, AppConfig } from "../types";
 import ContextMenu from "../components/ContextMenu";
 import type { MenuItem } from "../components/ContextMenu";
 import { useNotification } from "../contexts/NotificationContext";
+import { useStatusBar } from "../contexts/StatusBarContext";
 import { 
     Folder, 
     FileText, 
@@ -28,6 +29,7 @@ import clsx from "clsx";
 interface FileBrowserProps {
     profile: string;
     bucket: string;
+    isActive: boolean;
 }
 
 interface DragDropPayload {
@@ -35,8 +37,9 @@ interface DragDropPayload {
     position: { x: number; y: number };
 }
 
-export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
+export default function FileBrowser({ profile, bucket, isActive }: FileBrowserProps) {
     const { addNotification, updateNotification, removeNotification } = useNotification();
+    const { setLeftItem } = useStatusBar();
     const [files, setFiles] = useState<FileEntry[]>([]);
     const [prefix, setPrefix] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -46,6 +49,20 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
     
     // Context Menu State
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, items: MenuItem[] } | null>(null);
+
+    // Update Status Bar
+    useEffect(() => {
+        if (isActive) {
+            setLeftItem(
+                <div className="flex items-center space-x-3">
+                    <span className="font-semibold">{bucket}</span>
+                    <span className="w-[1px] h-3 bg-white/20"></span>
+                    <span>{files.length} items</span>
+                    {loading && <span>(Syncing...)</span>}
+                </div>
+            );
+        }
+    }, [isActive, files.length, loading, bucket, setLeftItem]);
 
     useEffect(() => {
         loadFiles();
@@ -523,12 +540,6 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
                         ))}
                     </div>
                 )}
-            </div>
-
-            {/* Status Footer */}
-            <div className="h-6 bg-[#007fd4] text-white text-xs flex items-center px-3 justify-between">  
-                <span>{files.length} items</span>
-                <span>{loading ? "Syncing..." : "Synced"}</span>
             </div>
         </div>
     );

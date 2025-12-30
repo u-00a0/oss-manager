@@ -17,12 +17,18 @@ interface NotificationContextType {
     addNotification: (notification: Omit<Notification, 'id'>) => string;
     updateNotification: (id: string, updates: Partial<Notification>) => void;
     removeNotification: (id: string) => void;
+    isVisible: boolean;
+    setIsVisible: (visible: boolean) => void;
+    toggleVisibility: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [isVisible, setIsVisible] = useState(true);
+
+    const toggleVisibility = useCallback(() => setIsVisible(v => !v), []);
 
     const removeNotification = useCallback((id: string) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
@@ -66,7 +72,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }, [removeNotification]);
 
     return (
-        <NotificationContext.Provider value={{ notifications, addNotification, updateNotification, removeNotification }}>
+        <NotificationContext.Provider value={{ 
+            notifications, 
+            addNotification, 
+            updateNotification, 
+            removeNotification,
+            isVisible,
+            setIsVisible,
+            toggleVisibility
+        }}>
             {children}
         </NotificationContext.Provider>
     );

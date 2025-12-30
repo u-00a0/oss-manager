@@ -19,6 +19,7 @@ import { listen, emit } from "@tauri-apps/api/event";
 import type { AppConfig } from "./types";
 import { arrayMove } from "@dnd-kit/sortable";
 import { NotificationProvider } from "./contexts/NotificationContext";
+import { StatusBarProvider } from "./contexts/StatusBarContext";
 import NotificationCenter from "./components/NotificationCenter";
 
 // Type definitions for Tabs
@@ -283,28 +284,27 @@ function AppContent() {
           );
       }
 
-      return tabs.map(tab => {
-          const isActive = tab.id === activeTabId;
-          return (
-            <div 
-                key={tab.id} 
-                className="h-full w-full"
-                style={{ display: isActive ? 'block' : 'none' }}
-            >
-                {renderTabContent(tab)}
-            </div>
-          );
-      });
-  };
-
-  const renderTabContent = (tab: Tab) => {
-      switch (tab.type) {
-          case "file-browser":
-              if (!tab.data) return <div>{t("error")}: Missing tab data</div>;
-              return <FileBrowser profile={tab.data.profile} bucket={tab.data.bucket} />;
-          case "profiles":
-              return <ProfilesView />;
-          case "settings":
+            return tabs.map(tab => {
+                const isActive = tab.id === activeTabId;
+                return (
+                  <div
+                      key={tab.id}
+                      className="h-full w-full"
+                      style={{ display: isActive ? 'block' : 'none' }}
+                  >
+                      {renderTabContent(tab, isActive)}
+                  </div>
+                );
+            });
+        };
+      
+        const renderTabContent = (tab: Tab, isActive: boolean) => {
+            switch (tab.type) {
+                case "file-browser":
+                    if (!tab.data) return <div>{t("error")}: Missing tab data</div>;
+                    return <FileBrowser profile={tab.data.profile} bucket={tab.data.bucket} isActive={isActive} />;
+                case "profiles":
+                    return <ProfilesView />;          case "settings":
               return <SettingsView />;
           default:
               return <div>Unknown Tab Type</div>;
@@ -347,10 +347,12 @@ function AppContent() {
 export default function App() {
     return (
         <NotificationProvider>
-            <I18nProvider>
-                <AppContent />
-                <NotificationCenter />
-            </I18nProvider>
+            <StatusBarProvider>
+                <I18nProvider>
+                    <AppContent />
+                    <NotificationCenter />
+                </I18nProvider>
+            </StatusBarProvider>
         </NotificationProvider>
     );
 }
