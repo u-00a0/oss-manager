@@ -21,7 +21,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import ContextMenu, { MenuItem } from "./ContextMenu";
+import ContextMenu from "./ContextMenu";
+import type { MenuItem } from "./ContextMenu";
 
 interface Tab {
     id: string;

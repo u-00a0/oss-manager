@@ -3,7 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
 import type { FileEntry } from "../types";
-import ContextMenu, { MenuItem } from "../components/ContextMenu";
+import ContextMenu from "../components/ContextMenu";
+import type { MenuItem } from "../components/ContextMenu";
 import { 
     Folder, 
     FileText, 
