@@ -245,19 +245,19 @@ function AppContent() {
         openTab({ id: 'profiles-manager', title: t("manageProfiles"), type: 'profiles', active: true });    
     };
   
-    const handleOpenFile = (profile: string, bucket: string, fileKey: string) => {
-        openTab({
-            id: `details-${profile}-${bucket}-${fileKey}`,
-            title: fileKey.split('/').pop() || fileKey,
-            type: 'file-details',
-            data: { profile, bucket, fileKey },
-            active: true
-        });
-    };
-  
-    // Render Sidebar Content based on Activity  const renderSidebar = () => {
-      switch (activeActivity) {
-          case "files":
+        const handleOpenFile = (profile: string, bucket: string, fileKey: string) => {
+            openTab({
+                id: `details-${profile}-${bucket}-${fileKey}`,
+                title: fileKey.split('/').pop() || fileKey,
+                type: 'file-details',
+                data: { profile, bucket, fileKey },
+                active: true
+            });
+        };
+    
+        // Render Sidebar Content based on Activity
+        const renderSidebar = () => {
+          switch (activeActivity) {          case "files":
               return (
                   <Sidebar title={t("explorer")}>
                       <ExplorerSidebar onBucketSelect={handleBucketSelect} />
