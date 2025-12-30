@@ -1,12 +1,10 @@
 name: Release All
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Tag Name (e.g., v1.0.0)'
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -24,7 +22,6 @@ jobs:
       - name: Run Tests
         run: cargo test --workspace --exclude oss-desktop
 
-  # Linux CLI Build
   build-linux-cli:
     name: Linux CLI
     needs: test
@@ -46,7 +43,6 @@ jobs:
           name: linux-cli
           path: dist-cli/*
 
-  # Linux Desktop Build
   build-linux-desktop:
     name: Linux Desktop
     needs: test
@@ -56,7 +52,8 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+          # Use libwebkit2gtk-4.1-dev for Tauri v2
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Install Node.js
         uses: actions/setup-node@v4
         with: { node-version: 20 }
@@ -76,7 +73,6 @@ jobs:
           name: linux-desktop
           path: dist-desktop/*
 
-  # Windows Build (All Inno Setup)
   build-windows:
     name: Windows All
     needs: test
@@ -91,7 +87,6 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup
 
-      # Build Binaries
       - name: Build CLI
         run: cargo build --release -p oss-cli
       
@@ -101,7 +96,6 @@ jobs:
           npm install
           npm run tauri build
 
-      # Package
       - name: Create Dist Dir
         run: mkdir dist-win
         shell: cmd
