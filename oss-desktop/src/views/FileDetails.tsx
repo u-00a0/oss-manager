@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNotification } from "../contexts/NotificationContext";
-import { Loader2, Download, FileText, Image as ImageIcon, File, AlertCircle } from "lucide-react";
+import { Loader2, Download, FileText, Image as ImageIcon, File, AlertCircle, Copy } from "lucide-react";
 import { join } from "@tauri-apps/api/path";
 import { save } from "@tauri-apps/plugin-dialog";
 
@@ -179,7 +179,20 @@ export default function FileDetails({ profile, bucket, fileKey }: FileDetailsPro
                     <div>
                         <h2 className="text-lg font-bold select-text text-white">{name}</h2>
                         <div className="text-xs text-[#858585] mt-1 space-y-0.5 select-text">
-                            <div>Key: <span className="text-[#cccccc] font-mono">{metadata.key}</span></div>
+                            <div className="flex items-center">
+                                <span>Key: </span>
+                                <span className="text-[#cccccc] font-mono ml-1 mr-2">{metadata.key}</span>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(metadata.key);
+                                        addNotification({ title: "Path copied", type: 'success', duration: 2000 });
+                                    }}
+                                    className="p-1 hover:bg-[#454545] rounded text-[#858585] hover:text-white transition-colors"
+                                    title="Copy Path"
+                                >
+                                    <Copy size={12} />
+                                </button>
+                            </div>
                             <div>Size: <span className="text-[#cccccc]">{formatSize(metadata.size)}</span></div>
                             <div>Last Modified: <span className="text-[#cccccc]">{metadata.last_modified ? new Date(metadata.last_modified).toLocaleString() : '-'}</span></div>
                             {metadata.content_type && <div>Type: <span className="text-[#cccccc]">{metadata.content_type}</span></div>}
