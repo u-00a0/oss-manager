@@ -21,6 +21,7 @@ import type { AppConfig } from "./types";
 import { arrayMove } from "@dnd-kit/sortable";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { StatusBarProvider } from "./contexts/StatusBarContext";
+import { SearchProvider, useSearch } from "./contexts/SearchContext";
 import NotificationCenter from "./components/NotificationCenter";
 
 // Type definitions for Tabs
@@ -60,14 +61,19 @@ interface TabClaimedEvent {
 
 function AppContent() {
   const { t, setLanguage } = useI18n();
+  const { setSearchQuery } = useSearch();
   const [activeActivity, setActiveActivity] = useState("files");
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [remoteTab, setRemoteTab] = useState<Tab | null>(null);
   const windowLabel = useRef("");
-  
-  // Track if we are currently dragging a tab that might be claimed
-  const pendingDropRef = useRef<{ id: string, claimed: boolean } | null>(null);
+
+  // Clear search on tab switch
+  useEffect(() => {
+      setSearchQuery("");
+  }, [activeTabId, setSearchQuery]);
+
+  // Track if we are currently dragging a tab that might be claimed  const pendingDropRef = useRef<{ id: string, claimed: boolean } | null>(null);
 
   useEffect(() => {
     const win = getCurrentWindow();
@@ -371,10 +377,12 @@ export default function App() {
     return (
         <NotificationProvider>
             <StatusBarProvider>
-                <I18nProvider>
-                    <AppContent />
-                    <NotificationCenter />
-                </I18nProvider>
+                <SearchProvider>
+                    <I18nProvider>
+                        <AppContent />
+                        <NotificationCenter />
+                    </I18nProvider>
+                </SearchProvider>
             </StatusBarProvider>
         </NotificationProvider>
     );

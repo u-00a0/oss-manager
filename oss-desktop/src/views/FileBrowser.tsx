@@ -8,6 +8,7 @@ import ContextMenu from "../components/ContextMenu";
 import type { MenuItem } from "../components/ContextMenu";
 import { useNotification } from "../contexts/NotificationContext";
 import { useStatusBar } from "../contexts/StatusBarContext";
+import { useSearch } from "../contexts/SearchContext";
 import { 
     Folder, 
     FileText, 
@@ -41,6 +42,7 @@ interface DragDropPayload {
 export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: FileBrowserProps) {
     const { addNotification, updateNotification, removeNotification } = useNotification();
     const { setLeftItem } = useStatusBar();
+    const { searchQuery } = useSearch();
     const [files, setFiles] = useState<FileEntry[]>([]);
     const [prefix, setPrefix] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -56,19 +58,25 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
     // Context Menu State
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, items: MenuItem[] } | null>(null);
 
+    // Filter files
+    const filteredFiles = files.filter(f => {
+        if (!isActive || !searchQuery) return true;
+        return f.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+
     // Update Status Bar
     useEffect(() => {
         if (isActive) {
             setLeftItem(
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 text-xs">
                     <span className="font-semibold">{bucket}</span>
                     <span className="w-[1px] h-3 bg-white/20"></span>
-                    <span>{files.length} items</span>
+                    <span>{filteredFiles.length} items {isActive && searchQuery && `(of ${files.length})`}</span>
                     {loading && <span>(Syncing...)</span>}
                 </div>
             );
         }
-    }, [isActive, files.length, loading, bucket, setLeftItem]);
+    }, [isActive, files.length, filteredFiles.length, loading, bucket, setLeftItem, searchQuery]);
 
     // Focus input when editing starts
     useEffect(() => {
@@ -545,8 +553,10 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
             }}>
                 {error && <div className="text-red-500 p-4">Error: {error}</div>}
 
-                {files.length === 0 && !loading && !error && (
-                    <div className="text-[#858585] text-center mt-10">No files found.</div>
+                {filteredFiles.length === 0 && !loading && !error && (
+                    <div className="text-[#858585] text-center mt-10">
+                        {searchQuery ? "No matching files found." : "No files found."}
+                    </div>
                 )}
 
                 {viewMode === "list" ? (
@@ -558,7 +568,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                             <div className="font-bold text-[#858585] border-b border-[#3e3e42] pb-1 text-right pl-4">Date Modified</div>
 
                             {/* Rows */}
-                            {files.map(file => (
+                            {filteredFiles.map(file => (
                                 <div
                                     key={file.path}
                                     className="contents group cursor-pointer"
@@ -593,7 +603,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                     </div>
                 ) : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-4 p-2">      
-                        {files.map(file => (
+                        {filteredFiles.map(file => (
                             <div
                                 key={file.path}
                                 className="flex flex-col items-center p-2 hover:bg-[#2a2d2e] rounded cursor-pointer group"
