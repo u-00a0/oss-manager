@@ -30,6 +30,7 @@ interface FileBrowserProps {
     profile: string;
     bucket: string;
     isActive: boolean;
+    onOpenFile?: (key: string) => void;
 }
 
 interface DragDropPayload {
@@ -37,7 +38,7 @@ interface DragDropPayload {
     position: { x: number; y: number };
 }
 
-export default function FileBrowser({ profile, bucket, isActive }: FileBrowserProps) {
+export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: FileBrowserProps) {
     const { addNotification, updateNotification, removeNotification } = useNotification();
     const { setLeftItem } = useStatusBar();
     const [files, setFiles] = useState<FileEntry[]>([]);
@@ -562,6 +563,12 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
                                     key={file.path}
                                     className="contents group cursor-pointer"
                                     onClick={(e) => { e.stopPropagation(); handleNavigate(file); }}
+                                    onDoubleClick={(e) => {
+                                        if (!file.is_dir && onOpenFile) {
+                                            e.stopPropagation();
+                                            onOpenFile(file.path);
+                                        }
+                                    }}
                                     onContextMenu={(e) => handleContextMenu(e, file)}
                                     draggable // Placeholder for future drag out
                                 >
@@ -591,6 +598,12 @@ export default function FileBrowser({ profile, bucket, isActive }: FileBrowserPr
                                 key={file.path}
                                 className="flex flex-col items-center p-2 hover:bg-[#2a2d2e] rounded cursor-pointer group"
                                 onClick={(e) => { e.stopPropagation(); handleNavigate(file); }}
+                                onDoubleClick={(e) => {
+                                    if (!file.is_dir && onOpenFile) {
+                                        e.stopPropagation();
+                                        onOpenFile(file.path);
+                                    }
+                                }}
                                 onContextMenu={(e) => handleContextMenu(e, file)}
                                 draggable // Placeholder for future drag out
                                 title={file.name}

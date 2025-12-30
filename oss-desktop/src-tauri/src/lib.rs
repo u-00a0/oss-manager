@@ -18,6 +18,15 @@ pub struct FileEntry {
     pub last_modified: Option<i64>, // Timestamp in milliseconds
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ObjectMetadata {
+    pub key: String,
+    pub size: i64,
+    pub last_modified: Option<i64>,
+    pub etag: Option<String>,
+    pub content_type: Option<String>,
+}
+
 fn get_config_path() -> PathBuf {
     dirs::home_dir().expect("Could not find home directory").join(".oss-manager").join("config.json")
 }
@@ -135,11 +144,15 @@ async fn upload_file(
 #[tauri::command]
 async fn download_file(
     repo: State<'_, TaskRepository>,
-    profile_name: String, 
-    bucket: String, 
-    key: String, 
-    local_path: String
+    profile_name: String,
+    bucket: String,
+    key: String,
+    local_path: String,
+    is_dir: bool
 ) -> Result<(), String> {
+    println!("download_file called: profile='{}', bucket='{}', key='{}', to='{}', is_dir={}", 
+        profile_name, bucket, key, local_path, is_dir);
+
     let path = get_config_path();
     let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
     let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
@@ -154,13 +167,12 @@ async fn download_file(
 
     let tm = TransferManager::new(client, repo.inner().clone());
     let dest_path = Path::new(&local_path);
-    
-    // Default concurrency 4
-        tm.download(&bucket, &key, dest_path, true, 4).await.map_err(|e| e.to_string())?;
-    
-        Ok(())
-    }
-    
+
+    // Use is_dir to determine if recursive download is needed
+    tm.download(&bucket, &key, dest_path, is_dir, 4).await.map_err(|e| e.to_string())?;
+
+    Ok(())
+}    
     #[tauri::command]
     async fn delete_object(
         profile_name: String,
@@ -182,11 +194,111 @@ async fn download_file(
         let ops = S3Ops::new(client);
         ops.delete_object(&bucket, &key).await.map_err(|e| e.to_string())?;
     
-        Ok(())
-    }
+                Ok(())
     
-    #[tauri::command]
-    fn list_profiles() -> Result<std::collections::HashMap<String, Profile>, String> {    let path = get_config_path();
+            }
+    
+        
+    
+            #[tauri::command]
+    
+            async fn head_object(profile_name: String, bucket: String, key: String) -> Result<ObjectMetadata, String> {
+    
+                let path = get_config_path();
+    
+                let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
+    
+                let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
+    
+        
+    
+                let client = create_client(
+    
+                    profile.provider,
+    
+                    profile.access_key.clone(),
+    
+                    profile.secret_key.clone(),
+    
+                    profile.region.clone(),
+    
+                    profile.endpoint.clone(),
+    
+                );
+    
+        
+    
+                let resp = client.head_object().bucket(&bucket).key(&key).send().await.map_err(|e| e.to_string())?;
+    
+        
+    
+                Ok(ObjectMetadata {
+    
+                    key,
+    
+                    size: resp.content_length.unwrap_or(0),
+    
+                    last_modified: resp.last_modified.map(|t| t.to_millis().unwrap_or(0)),
+    
+                    etag: resp.e_tag.map(String::from),
+    
+                    content_type: resp.content_type.map(String::from),
+    
+                })
+    
+            }
+    
+        
+    
+            #[tauri::command]
+    
+            async fn read_object(profile_name: String, bucket: String, key: String) -> Result<Vec<u8>, String> {
+    
+                let path = get_config_path();
+    
+                let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
+    
+                let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
+    
+        
+    
+                let client = create_client(
+    
+                    profile.provider,
+    
+                    profile.access_key.clone(),
+    
+                    profile.secret_key.clone(),
+    
+                    profile.region.clone(),
+    
+                    profile.endpoint.clone(),
+    
+                );
+    
+        
+    
+                // Limit to 5MB for preview
+    
+                let range = "bytes=0-5242880"; 
+    
+                
+    
+                let resp = client.get_object().bucket(&bucket).key(&key).range(range).send().await.map_err(|e| e.to_string())?;
+    
+                
+    
+                let data = resp.body.collect().await.map_err(|e| e.to_string())?.into_bytes();
+    
+                Ok(data.to_vec())
+    
+            }
+    
+        
+    
+            #[tauri::command]
+    
+            fn list_profiles() -> Result<std::collections::HashMap<String, Profile>, String> {    let path = get_config_path();
     let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
     Ok(manager.profiles)
 }
@@ -265,7 +377,9 @@ pub fn run() {
         create_window,
         upload_file,
         download_file,
-        delete_object
+        delete_object,
+        head_object,
+        read_object
     ])
     .setup(|app| {
       app.handle().plugin(tauri_plugin_dialog::init())?;

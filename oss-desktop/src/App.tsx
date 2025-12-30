@@ -8,6 +8,7 @@ import StatusBar from "./components/StatusBar";
 
 import ExplorerSidebar from "./views/ExplorerSidebar";
 import FileBrowser from "./views/FileBrowser";
+import FileDetails from "./views/FileDetails";
 import ProfilesView from "./views/ProfilesView";
 import SettingsView from "./views/SettingsView";
 
@@ -26,8 +27,8 @@ import NotificationCenter from "./components/NotificationCenter";
 interface Tab {
     id: string;
     title: string;
-    type: "file-browser" | "settings" | "profiles";
-    data?: { profile: string; bucket: string };
+    type: "file-browser" | "settings" | "profiles" | "file-details";
+    data?: { profile: string; bucket: string; fileKey?: string };
     active: boolean;
 }
 
@@ -240,12 +241,21 @@ function AppContent() {
       openTab({ id: 'settings', title: t("settings"), type: 'settings', active: true });
   };
 
-  const handleOpenProfiles = () => {
-      openTab({ id: 'profiles-manager', title: t("manageProfiles"), type: 'profiles', active: true });
-  };
-
-  // Render Sidebar Content based on Activity
-  const renderSidebar = () => {
+    const handleOpenProfiles = () => {
+        openTab({ id: 'profiles-manager', title: t("manageProfiles"), type: 'profiles', active: true });    
+    };
+  
+    const handleOpenFile = (profile: string, bucket: string, fileKey: string) => {
+        openTab({
+            id: `details-${profile}-${bucket}-${fileKey}`,
+            title: fileKey.split('/').pop() || fileKey,
+            type: 'file-details',
+            data: { profile, bucket, fileKey },
+            active: true
+        });
+    };
+  
+    // Render Sidebar Content based on Activity  const renderSidebar = () => {
       switch (activeActivity) {
           case "files":
               return (
@@ -298,13 +308,26 @@ function AppContent() {
             });
         };
       
-        const renderTabContent = (tab: Tab, isActive: boolean) => {
-            switch (tab.type) {
-                case "file-browser":
-                    if (!tab.data) return <div>{t("error")}: Missing tab data</div>;
-                    return <FileBrowser profile={tab.data.profile} bucket={tab.data.bucket} isActive={isActive} />;
-                case "profiles":
-                    return <ProfilesView />;          case "settings":
+  const renderTabContent = (tab: Tab, isActive: boolean) => {
+      switch (tab.type) {
+          case "file-browser":
+              if (!tab.data) return <div>{t("error")}: Missing tab data</div>;
+              return <FileBrowser 
+                        profile={tab.data.profile} 
+                        bucket={tab.data.bucket} 
+                        isActive={isActive} 
+                        onOpenFile={(key) => handleOpenFile(tab.data.profile!, tab.data.bucket!, key)}
+                     />;
+          case "file-details":
+              if (!tab.data || !tab.data.fileKey) return <div>{t("error")}: Missing file key</div>;
+              return <FileDetails 
+                        profile={tab.data.profile} 
+                        bucket={tab.data.bucket} 
+                        fileKey={tab.data.fileKey} 
+                     />;
+          case "profiles":
+              return <ProfilesView />;
+          case "settings":
               return <SettingsView />;
           default:
               return <div>Unknown Tab Type</div>;
