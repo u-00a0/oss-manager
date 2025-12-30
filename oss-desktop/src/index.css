@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+:root {
+  --background: #1e1e1e;
+  --foreground: #d4d4d4;
+}
+
+body {
+  @apply bg-background text-foreground;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  overflow: hidden;
+}
+
+@keyframes indeterminate {
+    0% { left: -50%; width: 30%; }
+    40% { left: 20%; width: 60%; }
+    100% { left: 100%; width: 10%;}
+}

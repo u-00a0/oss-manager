@@ -6,15 +6,16 @@ import { join } from "@tauri-apps/api/path";
 import type { FileEntry, AppConfig } from "../types";
 import ContextMenu from "../components/ContextMenu";
 import type { MenuItem } from "../components/ContextMenu";
+import { useNotification } from "../contexts/NotificationContext";
 import { 
     Folder, 
     FileText, 
     Grid, 
     List, 
-    RefreshCw,
-    ArrowUp,
-    ChevronRight,
-    Home,
+    RefreshCw, 
+    ArrowUp, 
+    ChevronRight, 
+    Home, 
     UploadCloud,
     Download,
     Trash2,
@@ -35,6 +36,7 @@ interface DragDropPayload {
 }
 
 export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
+    const { addNotification, updateNotification, removeNotification } = useNotification();
     const [files, setFiles] = useState<FileEntry[]>([]);
     const [prefix, setPrefix] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -114,7 +116,14 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
 
     async function handleUpload(filePaths: string[]) {
         setLoading(true);
+        const notifId = addNotification({
+            title: `Uploading ${filePaths.length} items...`,
+            type: 'progress',
+            progress: 0
+        });
+
         try {
+            let completed = 0;
             for (const path of filePaths) {
                 await invoke("upload_file", {
                     profileName: profile,
@@ -122,11 +131,26 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
                     localPath: path,
                     destPrefix: prefix
                 });
+                completed++;
+                updateNotification(notifId, {
+                    progress: Math.round((completed / filePaths.length) * 100)
+                });
             }
+            updateNotification(notifId, {
+                title: "Upload Completed",
+                type: 'success',
+                progress: 100,
+                duration: 3000
+            });
             loadFiles();
         } catch (e) {
             console.error("Upload failed", e);
-            alert("Upload failed: " + e);
+            updateNotification(notifId, {
+                title: "Upload Failed",
+                message: String(e),
+                type: 'error',
+                autoClose: false
+            });
             setLoading(false);
         }
     }
@@ -134,19 +158,39 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
     async function handleDelete(file: FileEntry) {
         if (!confirm(`Are you sure you want to delete ${file.name}?`)) return;
         
+        const notifId = addNotification({
+            title: `Deleting ${file.name}...`,
+            type: 'progress'
+        });
+
         try {
             await invoke("delete_object", {
                 profileName: profile,
                 bucket,
                 key: file.path
             });
+            updateNotification(notifId, {
+                title: `Deleted ${file.name}`,
+                type: 'success',
+                duration: 2000
+            });
             loadFiles();
         } catch (e) {
-            alert("Delete failed: " + e);
+            updateNotification(notifId, {
+                title: "Delete Failed",
+                message: String(e),
+                type: 'error',
+                autoClose: false
+            });
         }
     }
     
     async function handleDownload(file: FileEntry) {
+        const notifId = addNotification({
+            title: `Downloading ${file.name}...`,
+            type: 'progress'
+        });
+
         try {
             const config = await invoke<AppConfig>("get_app_config");
             if (config.default_download_dir) {
@@ -155,16 +199,27 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
                     profileName: profile,
                     bucket,
                     key: file.path,
-                    localPath
+                    localPath,
+                    isDir: file.is_dir
                 });
-                // Small visual feedback could be added here (toast)
-                console.log(`Started download to ${localPath}`);
+                updateNotification(notifId, {
+                    title: "Download Completed",
+                    message: `Saved to ${localPath}`,
+                    type: 'success',
+                    progress: 100,
+                    duration: 3000
+                });
             } else {
-                // Fallback to Save As if no default dir configured
+                removeNotification(notifId);
                 await handleSaveAs(file);
             }
         } catch (e) {
-            alert("Download failed: " + e);
+             updateNotification(notifId, {
+                title: "Download Failed",
+                message: String(e),
+                type: 'error',
+                autoClose: false
+            });
         }
     }
 
@@ -175,16 +230,37 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
             });
             
             if (localPath) {
-                await invoke("download_file", {
-                    profileName: profile,
-                    bucket,
-                    key: file.path,
-                    localPath
+                const notifId = addNotification({
+                    title: `Downloading ${file.name}...`,
+                    type: 'progress'
                 });
-                console.log(`Started download to ${localPath}`);
+
+                try {
+                    await invoke("download_file", {
+                        profileName: profile,
+                        bucket,
+                        key: file.path,
+                        localPath,
+                        isDir: file.is_dir
+                    });
+                    updateNotification(notifId, {
+                        title: "Download Completed",
+                        message: `Saved to ${localPath}`,
+                        type: 'success',
+                        progress: 100,
+                        duration: 3000
+                    });
+                } catch(e) {
+                     updateNotification(notifId, {
+                        title: "Download Failed",
+                        message: String(e),
+                        type: 'error',
+                        autoClose: false
+                    });
+                }
             }
         } catch (e) {
-            alert("Download failed: " + e);
+            console.error(e);
         }
     }
 
@@ -212,7 +288,10 @@ export default function FileBrowser({ profile, bucket }: FileBrowserProps) {
                     { 
                         label: "Copy Path", 
                         icon: <Copy size={14} />,
-                        action: () => navigator.clipboard.writeText(file.path) 
+                        action: () => {
+                            navigator.clipboard.writeText(file.path);
+                            addNotification({ title: "Path copied", type: 'success', duration: 2000 });
+                        }
                     },
                     { separator: true, label: "" },
                     { 
