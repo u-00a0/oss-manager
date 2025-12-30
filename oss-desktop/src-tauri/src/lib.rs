@@ -381,47 +381,52 @@ pub fn run() {
         head_object,
         read_object
     ])
-    .setup(|app| {
-      app.handle().plugin(tauri_plugin_dialog::init())?;
-      app.handle().plugin(tauri_plugin_fs::init())?;
-      
-      // Initialize Database
-      let db_path = get_db_path();
-      if let Some(parent) = db_path.parent() {
-          let _ = fs::create_dir_all(parent);
-      }
-      
-      // Ensure file exists for sqlite
-      if !db_path.exists() {
-          let _ = fs::File::create(&db_path);
-      }
-
-      let db_url = format!("sqlite://{}", db_path.to_string_lossy());
-      let app_handle = app.handle().clone();
-      
-      tauri::async_runtime::block_on(async move {
-          let pool = SqlitePoolOptions::new()
-              .max_connections(5)
-              .connect(&db_url)
-              .await
-              .expect("Failed to connect to database");
+        .setup(|app| {
+          app.handle().plugin(tauri_plugin_dialog::init())?;
+          app.handle().plugin(tauri_plugin_fs::init())?;
           
-          let repo = TaskRepository::new(pool);
-          // Run migrations
-          repo.migrate().await.expect("Failed to migrate database");
-          
-          app_handle.manage(repo);
-      });
-
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
-      Ok(())
-    })
-    .run(tauri::generate_context!())
+          // Always enable logging
+          app.handle().plugin(
+            tauri_plugin_log::Builder::default()
+              .level(log::LevelFilter::Info)
+              .build(),
+          )?;
+    
+          // Initialize Database
+          let db_path = get_db_path();
+          if let Some(parent) = db_path.parent() {
+              let _ = fs::create_dir_all(parent);
+          }
+    
+          // Ensure file exists for sqlite
+          if !db_path.exists() {
+              let _ = fs::File::create(&db_path);
+          }
+    
+          let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+          let app_handle = app.handle().clone();
+    
+          tauri::async_runtime::block_on(async move {
+              let pool = SqlitePoolOptions::new()
+                  .max_connections(5)
+                  .connect(&db_url)
+                  .await
+                  .unwrap_or_else(|e| {
+                      log::error!("Failed to connect to database at {}: {}", db_url, e);
+                      panic!("Failed to connect to database: {}", e);
+                  });
+    
+              let repo = TaskRepository::new(pool);
+              // Run migrations
+              repo.migrate().await.unwrap_or_else(|e| {
+                  log::error!("Failed to migrate database: {}", e);
+                  panic!("Failed to migrate database: {}", e);
+              });
+    
+              app_handle.manage(repo);
+          });
+    
+          Ok(())
+        })    .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
