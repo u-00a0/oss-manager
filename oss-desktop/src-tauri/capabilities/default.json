@@ -14,8 +14,10 @@
     "core:window:allow-start-dragging",
     "core:window:allow-set-resizable",
     "core:window:allow-create",
+    "core:event:default",
     "dialog:default",
     "fs:default",
+    "log:default",
     "process:allow-exit"
   ]
 }

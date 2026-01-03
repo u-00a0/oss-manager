@@ -33,11 +33,11 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Desktop Binary
-Source: "..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; CLI Binary (Bundled)
-Source: "..\target\release\{#MyCliExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\target\release\{#MyCliExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Webview2 Loader (Often needed by Tauri, usually built alongside)
-Source: "..\target\release\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\..\target\release\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\ {#MyAppName}"; Filename: "{app}\ {#MyAppExeName}"
