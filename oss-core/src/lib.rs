@@ -4,6 +4,8 @@ use aws_sdk_s3::{config::Builder, Client};
 use aws_types::sdk_config::SharedCredentialsProvider;
 use serde::{Deserialize, Serialize};
 
+pub use aws_sdk_s3;
+
 pub mod config;
 pub mod db;
 pub mod downloader;
