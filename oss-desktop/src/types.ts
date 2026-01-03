@@ -28,7 +28,7 @@ export type Profiles = Record<string, Profile>;
 export interface Tab {
     id: string;
     title: string;
-    type: "file-browser" | "settings" | "profiles" | "file-details";
+    type: "file-browser" | "settings" | "profiles" | "file-details" | "shortcuts" | "transfers";
     data?: { profile: string; bucket: string; fileKey?: string };
     active: boolean;
 }

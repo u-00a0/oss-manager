@@ -8,7 +8,6 @@ import EditorGroup from "./components/EditorGroup";
 import type { Tab } from "./types";
 
 import ExplorerSidebar from "./views/ExplorerSidebar";
-import TransferDashboard from "./views/TransferDashboard";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 
 import { I18nProvider, useI18n } from "./contexts/I18nContext";
@@ -389,7 +388,7 @@ function AppContent() {
               { event: 'menu:open-settings', action: handleOpenSettings },
               { event: 'menu:open-profiles', action: handleOpenProfiles },
               { event: 'menu:reload', action: () => window.location.reload() },
-              { event: 'menu:split-right', action: () => handleSplit('right') },
+              { event: 'menu:split-right', action: () => handleSplit() },
           ];
 
           for (const { event, action } of handlers) {
@@ -458,7 +457,7 @@ function AppContent() {
                                     onReorder={handleReorder}
                                     onTabOut={handleTabOut}
                                     onActivateGroup={setActiveGroupId}
-                                    onSplit={() => handleSplit('right')}
+                                    onSplit={() => handleSplit()}
                                     onOpenFile={handleOpenFile}
                                 />
                             </Panel>

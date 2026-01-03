@@ -84,7 +84,7 @@ export default function TransferDashboard() {
                             <Tooltip 
                                 contentStyle={{ backgroundColor: '#252526', borderColor: '#3e3e42' }}
                                 itemStyle={{ fontSize: 12 }}
-                                formatter={(val: number) => formatSize(val) + "/s"}
+                                formatter={(val: number | undefined) => formatSize(val || 0) + "/s"}
                             />
                             <Area type="monotone" dataKey="uploadSpeed" stroke="#60a5fa" fillOpacity={1} fill="url(#colorUp)" name={t("upload")} isAnimationActive={false} />
                             <Area type="monotone" dataKey="downloadSpeed" stroke="#4ade80" fillOpacity={1} fill="url(#colorDown)" name={t("download")} isAnimationActive={false} />
