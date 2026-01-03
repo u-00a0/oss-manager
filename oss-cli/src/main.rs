@@ -7,6 +7,16 @@ use oss_core::transfer::TransferManager;
 use oss_core::{create_client, S3Provider};
 use sqlx::sqlite::SqlitePoolOptions;
 use std::path::{Path, PathBuf};
+use indicatif::{ProgressBar, ProgressStyle};
+use std::sync::Arc;
+
+fn create_progress_bar(total_bytes: u64) -> ProgressBar {
+    let pb = ProgressBar::new(total_bytes);
+    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+        .unwrap()
+        .progress_chars("#>-"));
+    pb
+}
 
 #[derive(Parser)]
 #[command(name = "oss-cli")]
@@ -158,7 +168,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Rm { path, profile, recursive } => {
-            let (tm, _) = setup_env(&config_path, &profile).await?;
+            let (tm, _, _) = setup_env(&config_path, &profile).await?;
             let (bucket, key) = parse_s3_uri(&path)?;
             
             // Confirm deletion
@@ -312,7 +322,7 @@ async fn main() -> Result<()> {
             println!("Profile '{}' deleted.", name);
         }
         Commands::Ls { path, profile } => {
-            let (tm, _) = setup_env(&config_path, &profile).await?;
+            let (tm, _, _) = setup_env(&config_path, &profile).await?;
             let (bucket, key) = parse_s3_uri(&path)?;
             let results = tm.ls(&bucket, &key).await?;
             for line in results {
@@ -320,7 +330,7 @@ async fn main() -> Result<()> {
             }
         }
         Commands::Tree { path, profile } => {
-             let (tm, _) = setup_env(&config_path, &profile).await?;
+             let (tm, _, _) = setup_env(&config_path, &profile).await?;
              let (bucket, key) = parse_s3_uri(&path)?;
              let results = tm.tree(&bucket, &key).await?;
              for line in results {
@@ -328,7 +338,7 @@ async fn main() -> Result<()> {
              }
         }
         Commands::Cp { source, destination, profile, recursive, threads } => {
-            let (tm, _) = setup_env(&config_path, &profile).await?;
+            let (tm, _, client) = setup_env(&config_path, &profile).await?;
 
             let src_is_oss = source.starts_with("oss://") || source.starts_with("s3://");
             let dest_is_oss = destination.starts_with("oss://") || destination.starts_with("s3://");
@@ -337,14 +347,48 @@ async fn main() -> Result<()> {
                 // Upload: Local -> Cloud
                 let (bucket, key) = parse_s3_uri(&destination)?;
                 let local_path = Path::new(&source);
-                tm.upload(local_path, &bucket, &key, recursive, threads).await?;
+                
+                let mut progress_callback = None;
+                let mut _pb_guard = None;
+
+                if local_path.is_file() {
+                    let total_size = std::fs::metadata(local_path)?.len();
+                    let pb = create_progress_bar(total_size);
+                    let pb_clone = pb.clone();
+                    progress_callback = Some(Arc::new(move |transferred| {
+                        pb_clone.set_position(transferred);
+                    }) as Arc<dyn Fn(u64) + Send + Sync>);
+                    _pb_guard = Some(pb);
+                }
+
+                tm.upload(local_path, &bucket, &key, recursive, threads, progress_callback, None).await?;
+                if let Some(pb) = _pb_guard { pb.finish_with_message("Upload completed"); }
                 println!("Upload completed.");
 
             } else if src_is_oss && !dest_is_oss {
                 // Download: Cloud -> Local
                 let (bucket, key) = parse_s3_uri(&source)?;
                 let local_path = Path::new(&destination);
-                tm.download(&bucket, &key, local_path, recursive, threads).await?;
+                
+                let mut progress_callback = None;
+                let mut _pb_guard = None;
+
+                // Only get size for single file download to avoid complexity
+                if !recursive && !key.ends_with('/') {
+                    if let Ok(head) = client.head_object().bucket(&bucket).key(&key).send().await {
+                        if let Some(size) = head.content_length {
+                            let pb = create_progress_bar(size as u64);
+                            let pb_clone = pb.clone();
+                            progress_callback = Some(Arc::new(move |transferred| {
+                                pb_clone.set_position(transferred);
+                            }) as Arc<dyn Fn(u64) + Send + Sync>);
+                            _pb_guard = Some(pb);
+                        }
+                    }
+                }
+
+                tm.download(&bucket, &key, local_path, recursive, threads, progress_callback, None).await?;
+                if let Some(pb) = _pb_guard { pb.finish_with_message("Download completed"); }
                 println!("Download completed.");
 
             } else if src_is_oss && dest_is_oss {
@@ -358,7 +402,7 @@ async fn main() -> Result<()> {
                     println!("Cloud copy completed.");
                 } else {
                     // Cross Bucket Copy (via Local)
-                    tm.copy_cross_bucket(&src_bucket, &src_key, &dest_bucket, &dest_key, recursive, threads).await?;
+                    tm.copy_cross_bucket(&src_bucket, &src_key, &dest_bucket, &dest_key, recursive, threads, None).await?;
                     println!("Cross-bucket copy completed.");
                 }
             } else {
@@ -366,7 +410,7 @@ async fn main() -> Result<()> {
             }
         }
         Commands::Mv { source, destination, profile } => {
-            let (tm, _) = setup_env(&config_path, &profile).await?;
+            let (tm, _, _) = setup_env(&config_path, &profile).await?;
             let (src_bucket, src_key) = parse_s3_uri(&source)?;
             let (dest_bucket, dest_key) = parse_s3_uri(&destination)?;
 
@@ -382,7 +426,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn setup_env(config_path: &Path, profile_name: &str) -> Result<(TransferManager, TaskRepository)> {
+async fn setup_env(config_path: &Path, profile_name: &str) -> Result<(TransferManager, TaskRepository, oss_core::aws_sdk_s3::Client)> {
     let manager = ConfigManager::load_from_file(config_path)?;
     let profile_config = manager
         .get_profile(profile_name)
@@ -410,7 +454,7 @@ async fn setup_env(config_path: &Path, profile_name: &str) -> Result<(TransferMa
     let repo = TaskRepository::new(pool);
     repo.migrate().await.context("Failed to migrate database")?;
 
-    Ok((TransferManager::new(client, repo.clone()), repo))
+    Ok((TransferManager::new(client.clone(), repo.clone()), repo, client))
 }
 
 fn parse_s3_uri(uri: &str) -> Result<(String, String)> {

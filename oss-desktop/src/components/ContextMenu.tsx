@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import clsx from "clsx";
 
 export interface MenuItem {
-    label: string;
+    label?: string;
     action?: () => void;
     icon?: React.ReactNode;
     shortcut?: string;
@@ -70,7 +70,7 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
     return createPortal(
         <div
             ref={menuRef}
-            className="fixed z-50 min-w-[180px] bg-[#252526] border border-[#454545] shadow-xl rounded-md py-1 text-[#cccccc] text-xs select-none"
+            className="fixed z-50 min-w-[180px] bg-[#252526] border border-[#454545] shadow-xl rounded-md py-1 text-[#cccccc] text-xs select-none animate-menu-in"
             style={style}
             onContextMenu={(e) => e.preventDefault()}
         >

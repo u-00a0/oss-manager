@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Files, Settings, Sliders } from "lucide-react";
+import { Files, Settings, Sliders, Activity } from "lucide-react";
 import clsx from "clsx";
 import { useI18n } from "../contexts/I18nContext";
 
@@ -7,10 +7,12 @@ interface ActivityBarProps {
     activeTab: string;
     onTabChange: (tab: string) => void;
     onOpenSettings: () => void;
+    onOpenShortcuts: () => void;
+    onOpenTransfers: () => void;
     isSettingsTabActive: boolean;
 }
 
-export default function ActivityBar({ activeTab, onTabChange, onOpenSettings, isSettingsTabActive }: ActivityBarProps) {
+export default function ActivityBar({ activeTab, onTabChange, onOpenSettings, onOpenShortcuts, onOpenTransfers, isSettingsTabActive }: ActivityBarProps) {
     const { t } = useI18n();
     const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 
@@ -37,6 +39,15 @@ export default function ActivityBar({ activeTab, onTabChange, onOpenSettings, is
                 }}
                 title={t("profiles")}
             />
+            <ActivityItem
+                icon={<Activity size={24} />}
+                active={false} // Always opens a tab, not a sidebar view
+                onClick={() => {
+                    closeSettingsMenu();
+                    onOpenTransfers();
+                }}
+                title="Transfers"
+            />
 
             <div className="flex-1" />
 
@@ -57,11 +68,11 @@ export default function ActivityBar({ activeTab, onTabChange, onOpenSettings, is
                         />
 
                         {/* Menu */}
-                        <div className="absolute left-10 bottom-0 bg-[#252526] border border-[#454545] shadow-xl text-[#cccccc] text-xs min-w-[200px] z-50 rounded-sm py-1 select-none">
+                        <div className="absolute left-10 bottom-0 bg-[#252526] border border-[#454545] shadow-xl text-[#cccccc] text-xs min-w-[200px] z-50 rounded-sm py-1 select-none animate-menu-in">
                             <MenuItem
                                 label={t("keyboardShortcuts")}
                                 onClick={() => {
-                                    console.log("Keyboard Shortcuts clicked");
+                                    onOpenShortcuts();
                                     closeSettingsMenu();
                                 }} 
                             />

@@ -15,6 +15,7 @@
     "core:window:allow-set-resizable",
     "core:window:allow-create",
     "dialog:default",
-    "fs:default"
+    "fs:default",
+    "process:allow-exit"
   ]
 }

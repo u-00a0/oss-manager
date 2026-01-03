@@ -7,6 +7,9 @@ use tokio::fs::OpenOptions;
 use tokio::io::{AsyncSeekExt, AsyncWriteExt, SeekFrom};
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
+use tokio_util::sync::CancellationToken;
+
+use std::sync::atomic::{AtomicU64, Ordering};
 
 const CHUNK_SIZE: u64 = 10 * 1024 * 1024; // 10 MB fixed chunk size
 
@@ -21,21 +24,22 @@ impl Downloader {
     }
 
     /// Downloads a file from S3 with concurrent ranged requests.
-    ///
-    /// # Arguments
-    ///
-    /// * `bucket` - The S3 bucket name.
-    /// * `key` - The S3 object key.
-    /// * `file_path` - The local path to save the file.
-    /// * `concurrency` - The maximum number of concurrent download tasks.
     pub async fn download_file(
         &self,
         bucket: &str,
         key: &str,
         file_path: &Path,
         concurrency: usize,
+        progress_callback: Option<Arc<dyn Fn(u64) + Send + Sync>>,
+        cancel_token: Option<CancellationToken>,
     ) -> Result<()> {
         let file_path_str = file_path.to_string_lossy().to_string();
+
+        if let Some(ref token) = cancel_token {
+            if token.is_cancelled() {
+                return Err(anyhow::anyhow!("Cancelled"));
+            }
+        }
 
         // 1. Get object metadata (HeadObject)
         let head_output = self
@@ -131,6 +135,12 @@ impl Downloader {
         self.db.create_parts(parts).await?;
         
         let pending_parts = self.db.get_incomplete_parts(task_id).await?;
+        
+        // Progress Init
+        let transferred_atomic = Arc::new(AtomicU64::new(0));
+        if let Some(ref cb) = progress_callback {
+            cb(0);
+        }
 
         // 4. Concurrent Download with Semaphore
         let semaphore = Arc::new(Semaphore::new(concurrency));
@@ -142,16 +152,26 @@ impl Downloader {
         let file_path_buf = file_path.to_path_buf();
 
         for part in pending_parts {
+            if let Some(ref token) = cancel_token {
+                if token.is_cancelled() {
+                    return Err(anyhow::anyhow!("Cancelled"));
+                }
+            }
+
             let permit = semaphore.clone().acquire_owned().await.unwrap();
             let client = client.clone();
             let db = db.clone();
             let bucket = bucket.clone();
             let key = key.clone();
             let file_path = file_path_buf.clone();
+            
+            let cb = progress_callback.clone();
+            let transferred_atomic = transferred_atomic.clone();
 
             join_set.spawn(async move {
                 // Release permit automatically when this block ends
                 let _permit = permit;
+                let part_size = (part.end_byte - part.start_byte) as u64;
 
                 Self::download_part(
                     client,
@@ -161,13 +181,26 @@ impl Downloader {
                     file_path,
                     part,
                 )
-                .await
+                .await?;
+                
+                let new_total = transferred_atomic.fetch_add(part_size, Ordering::Relaxed) + part_size;
+                if let Some(callback) = cb {
+                    callback(new_total);
+                }
+                Ok::<(), anyhow::Error>(())
             });
         }
 
         // Wait for all tasks
         let mut error_occurred = false;
         while let Some(res) = join_set.join_next().await {
+            if let Some(ref token) = cancel_token {
+                if token.is_cancelled() {
+                    join_set.abort_all();
+                    return Err(anyhow::anyhow!("Cancelled"));
+                }
+            }
+
             match res {
                 Ok(Ok(_)) => {},
                 Ok(Err(e)) => {

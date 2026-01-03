@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { X, SplitSquareHorizontal } from "lucide-react";
 import clsx from "clsx";
 import {
   DndContext,
@@ -23,14 +23,7 @@ import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import ContextMenu from "./ContextMenu";
 import type { MenuItem } from "./ContextMenu";
-
-interface Tab {
-    id: string;
-    title: string;
-    active: boolean;
-    type: string;
-    data?: { profile: string; bucket: string };
-}
+import type { Tab } from "../types";
 
 interface TabBarProps {
     tabs: Tab[];
@@ -38,10 +31,11 @@ interface TabBarProps {
     onTabClose: (id: string) => void;
     onReorder: (oldIndex: number, newIndex: number) => void;
     onTabOut?: (tabId: string) => void;
+    onSplit?: () => void;
     remoteTab?: Tab | null;
 }
 
-export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabOut, remoteTab }: TabBarProps) {
+export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabOut, onSplit, remoteTab }: TabBarProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const windowLabel = useRef("");
     const lastMousePos = useRef({ x: 0, y: 0 });
@@ -143,6 +137,11 @@ export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabO
                         toClose.forEach(t => onTabClose(t.id));
                     }, 
                     disabled: index === tabs.length - 1 
+                },
+                { separator: true },
+                {
+                    label: "Split Right",
+                    action: () => onSplit && onSplit()
                 }
             ]
         });
@@ -152,53 +151,68 @@ export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabO
 
     return (
         <>
-            <div className="h-9 bg-[#252526] flex items-center overflow-x-auto scrollbar-hide border-b border-[#1e1e1e] shrink-0" onContextMenu={(e) => e.preventDefault()}>
-                {tabs.length > 0 || remoteTab ? (
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={pointerWithin}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                    >
-                        <SortableContext
-                            items={tabs.map(t => t.id)}
-                            strategy={horizontalListSortingStrategy}
+            <div className="h-9 bg-[#252526] flex items-center border-b border-[#1e1e1e] shrink-0 overflow-hidden" onContextMenu={(e) => e.preventDefault()}>
+                <div className="flex-1 flex items-center overflow-x-auto scrollbar-hide h-full">
+                    {tabs.length > 0 || remoteTab ? (
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={pointerWithin}
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
                         >
-                            {tabs.map((tab) => (
-                                <SortableTab
-                                    key={tab.id}
-                                    tab={tab}
-                                    onTabClick={onTabClick}
-                                    onTabClose={onTabClose}
-                                    onContextMenu={(e) => handleContextMenu(e, tab.id)}
-                                />
-                            ))}
-                        </SortableContext>
+                            <SortableContext
+                                items={tabs.map(t => t.id)}
+                                strategy={horizontalListSortingStrategy}
+                            >
+                                {tabs.map((tab) => (
+                                    <SortableTab
+                                        key={tab.id}
+                                        tab={tab}
+                                        onTabClick={onTabClick}
+                                        onTabClose={onTabClose}
+                                        onContextMenu={(e) => handleContextMenu(e, tab.id)}
+                                    />
+                                ))}
+                            </SortableContext>
 
-                        {remoteTab && (
-                            <div className="opacity-50">
-                                <TabItem
-                                    tab={remoteTab}
-                                    onTabClick={() => {}}
-                                    onTabClose={() => {}}
-                                />
-                            </div>
-                        )}
+                            {remoteTab && (
+                                <div className="opacity-50">
+                                    <TabItem
+                                        tab={remoteTab}
+                                        onTabClick={() => {}}
+                                        onTabClose={() => {}}
+                                    />
+                                </div>
+                            )}
 
-                        <DragOverlay modifiers={[restrictToWindowEdges]}>
-                            {activeTab ? (
-                                <TabItem
-                                    tab={activeTab}
-                                    onTabClick={() => {}}
-                                    onTabClose={() => {}}
-                                    isOverlay
-                                />
-                            ) : null}
-                        </DragOverlay>
-                    </DndContext>
-                ) : (
-                    <div className="px-4 text-xs text-[#858585] italic">No open tabs</div>
-                )}
+                            <DragOverlay modifiers={[restrictToWindowEdges]}>
+                                {activeTab ? (
+                                    <TabItem
+                                        tab={activeTab}
+                                        onTabClick={() => {}}
+                                        onTabClose={() => {}}
+                                        isOverlay
+                                    />
+                                ) : null}
+                            </DragOverlay>
+                        </DndContext>
+                    ) : (
+                        <div className="px-4 text-xs text-[#858585] italic">No open tabs</div>
+                    )}
+                </div>
+                
+                {/* Actions Area */}
+                <div className="flex items-center px-1 h-full">
+                    {onSplit && (
+                        <button 
+                            className="p-1 hover:bg-[#3c3c3c] rounded text-[#cccccc] hover:text-white"
+                            onClick={onSplit}
+                            title="Split Editor Right (Ctrl+\)"
+                        >
+                            <SplitSquareHorizontal size={14} />
+                        </button>
+                    )}
+                </div>
             </div>
             {contextMenu && (
                 <ContextMenu 

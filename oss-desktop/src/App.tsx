@@ -2,15 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import TitleBar from "./components/TitleBar";
 import ActivityBar from "./components/ActivityBar";
 import Sidebar from "./components/Sidebar";
-import TabBar from "./components/TabBar";
 import MainContent from "./components/MainContent";
 import StatusBar from "./components/StatusBar";
+import EditorGroup from "./components/EditorGroup";
+import type { Tab } from "./types";
 
 import ExplorerSidebar from "./views/ExplorerSidebar";
-import FileBrowser from "./views/FileBrowser";
-import FileDetails from "./views/FileDetails";
-import ProfilesView from "./views/ProfilesView";
-import SettingsView from "./views/SettingsView";
+import TransferDashboard from "./views/TransferDashboard";
+import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 
 import { I18nProvider, useI18n } from "./contexts/I18nContext";
 import type { Language } from "./contexts/I18nContext";
@@ -22,24 +21,15 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { StatusBarProvider } from "./contexts/StatusBarContext";
 import { SearchProvider, useSearch } from "./contexts/SearchContext";
+import { ClipboardProvider } from "./contexts/ClipboardContext";
 import NotificationCenter from "./components/NotificationCenter";
+import ErrorBoundary from "./components/ErrorBoundary";
 
-// Type definitions for Tabs
-interface Tab {
+// Group Definition
+interface EditorGroupData {
     id: string;
-    title: string;
-    type: "file-browser" | "settings" | "profiles" | "file-details";
-    data?: { profile: string; bucket: string; fileKey?: string };
-    active: boolean;
-}
-
-interface TabDragMoveEvent {
-    payload: {
-        windowLabel: string;
-        tab: Tab;
-        screenX: number;
-        screenY: number;
-    };
+    tabs: Tab[];
+    activeTabId: string | null;
 }
 
 interface TabDragDropEvent {
@@ -63,15 +53,23 @@ function AppContent() {
   const { t, setLanguage } = useI18n();
   const { setSearchQuery } = useSearch();
   const [activeActivity, setActiveActivity] = useState("files");
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [remoteTab, setRemoteTab] = useState<Tab | null>(null);
+  
+  // Multi-Group State
+  const [groups, setGroups] = useState<Record<string, EditorGroupData>>({
+      "group-0": { id: "group-0", tabs: [], activeTabId: null }
+  });
+  const [groupIds, setGroupIds] = useState<string[]>(["group-0"]);
+  const [activeGroupId, setActiveGroupId] = useState<string>("group-0");
+
   const windowLabel = useRef("");
+
+  // Helper to get active tab ID globally (for menu/search context)
+  const globalActiveTabId = groups[activeGroupId]?.activeTabId;
 
   // Clear search on tab switch
   useEffect(() => {
       setSearchQuery("");
-  }, [activeTabId, setSearchQuery]);
+  }, [globalActiveTabId, setSearchQuery]);
 
   // Track if we are currently dragging a tab that might be claimed
   const pendingDropRef = useRef<{ id: string, claimed: boolean } | null>(null);
@@ -93,39 +91,27 @@ function AppContent() {
     if (initTabJson) {
         try {
             const tabData = JSON.parse(decodeURIComponent(initTabJson));
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setTabs([tabData]);
-            setActiveTabId(tabData.id);
+            setGroups(prev => ({
+                ...prev,
+                "group-0": {
+                    id: "group-0",
+                    tabs: [tabData],
+                    activeTabId: tabData.id
+                }
+            }));
         } catch (e) {
             console.error("Failed to parse init tab data", e);
         }
     }
 
-    // Listeners for Cross-Window Dragging
-    const unlistenMove = listen('tab-drag-move', (event: TabDragMoveEvent) => {
-        const { windowLabel: srcLabel, tab, screenX, screenY } = event.payload;
-        if (srcLabel === windowLabel.current) return;
-
-        // Check if cursor is inside this window
-        const winX = window.screenX;
-        const winY = window.screenY;
-        const winW = window.outerWidth;
-        const winH = window.outerHeight;
-
-        if (screenX >= winX && screenX <= winX + winW &&
-            screenY >= winY && screenY <= winY + winH) {
-            setRemoteTab(tab);
-        } else {
-            setRemoteTab(null);
-        }
-    });
-
+    // Listeners for Cross-Window Dragging (Simplified for Groups)
+    // Note: DND Logic needs to be group-aware. For now, we drop into the active group.
+    
+    // ... (Keeping listeners mostly similar but targeting activeGroupId)
     const unlistenDrop = listen('tab-drag-drop', (event: TabDragDropEvent) => {
         const { windowLabel: srcLabel, tabId, tab, screenX, screenY } = event.payload;
-        
         if (srcLabel === windowLabel.current) return;
 
-        // Robust check: Verify coordinates even on drop
         const winX = window.screenX;
         const winY = window.screenY;
         const winW = window.outerWidth;
@@ -135,22 +121,29 @@ function AppContent() {
                          screenY >= winY && screenY <= winY + winH;
 
         if (isInside) {
-            // Accept the tab
-            // Use the data from payload, not state, for atomic reliability
+            // Drop into active group
             const newTab = { ...tab, active: true };
             
-            // Avoid adding duplicates
-            setTabs(prev => {
-                if (prev.find(t => t.id === tabId)) return prev;
-                return [...prev, newTab];
+            setGroups(prev => {
+                // Closure issue: activeGroupId might be stale here if not in dependency.
+                // We'll fix this by using functional update correctly or ref.
+                // ideally we find the group under cursor, but let's default to the last active one.
+                return prev; 
             });
-            setActiveTabId(newTab.id);
-            setRemoteTab(null);
+
+            // Re-implementing with functional update to access current state
+            setGroups(currentGroups => {
+                // Find target group (default to first or active)
+                // Since we don't have mouse pos here easily without tracking, default to group-0 or active
+                // A better way: The component state 'activeGroupId' is available if in dependency array.
+                // However, listeners are set once. We need a ref for activeGroupId.
+                return currentGroups; 
+            });
+
+            // Hack: Trigger a separate function or use ref for activeGroupId
+            handleExternalDrop(tabId, newTab);
             
-            // Notify source window that we claimed it
             emit('tab-claimed', { tabId, claimedBy: windowLabel.current });
-        } else {
-            setRemoteTab(null);
         }
     });
 
@@ -158,65 +151,132 @@ function AppContent() {
         const { tabId, claimedBy } = event.payload;
         if (claimedBy === windowLabel.current) return;
 
-        // If we were dragging this tab, remove it
-        setTabs(prev => {
-            const exists = prev.find(t => t.id === tabId);
-            if (exists) {
-                // Mark as claimed to prevent spawning new window
-                if (pendingDropRef.current && pendingDropRef.current.id === tabId) {
-                    pendingDropRef.current.claimed = true;
+        // Remove from ANY group
+        setGroups(prev => {
+            const next = { ...prev };
+            let changed = false;
+            
+            for (const gid of Object.keys(next)) {
+                const group = next[gid];
+                if (group.tabs.find(t => t.id === tabId)) {
+                    if (pendingDropRef.current && pendingDropRef.current.id === tabId) {
+                        pendingDropRef.current.claimed = true;
+                    }
+                    const newTabs = group.tabs.filter(t => t.id !== tabId);
+                    let newActiveId = group.activeTabId;
+                    if (group.activeTabId === tabId) {
+                        newActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
+                    }
+                    next[gid] = { ...group, tabs: newTabs, activeTabId: newActiveId };
+                    changed = true;
                 }
-                const newTabs = prev.filter(t => t.id !== tabId);
-                // If we removed the active tab, switch to another
-                if (activeTabId === tabId) {
-                     const nextTab = newTabs.length > 0 ? newTabs[newTabs.length - 1] : null;
-                     setActiveTabId(nextTab ? nextTab.id : null);
-                }
-                return newTabs;
             }
-            return prev;
+            return changed ? next : prev;
         });
     });
 
     return () => {
-        unlistenMove.then(f => f());
         unlistenDrop.then(f => f());
         unlistenClaimed.then(f => f());
     };
-  }, [activeTabId, setLanguage]); // Removed remoteTab dependency
+  }, []); // Empty dependency for listeners
+
+  // Ref for active group to be used in event listeners if needed
+  const activeGroupIdRef = useRef(activeGroupId);
+  useEffect(() => { activeGroupIdRef.current = activeGroupId; }, [activeGroupId]);
+
+  const handleExternalDrop = (tabId: string, tab: Tab) => {
+      const targetId = activeGroupIdRef.current;
+      setGroups(prev => {
+          const group = prev[targetId];
+          if (group.tabs.find(t => t.id === tabId)) return prev;
+          return {
+              ...prev,
+              [targetId]: {
+                  ...group,
+                  tabs: [...group.tabs, tab],
+                  activeTabId: tab.id
+              }
+          };
+      });
+  };
 
   // Tab Management
-  const openTab = (tab: Tab) => {
-    const existing = tabs.find(t => t.id === tab.id);
-    if (existing) {
-        setActiveTabId(existing.id);
-    } else {
-        setTabs([...tabs, tab]);
-        setActiveTabId(tab.id);
-    }
+  const openTab = (tab: Tab, targetGroupId?: string) => {
+    const gid = targetGroupId || activeGroupId;
+    
+    setGroups(prev => {
+        const group = prev[gid];
+        // Check if tab exists in THIS group
+        const existing = group.tabs.find(t => t.id === tab.id);
+        
+        if (existing) {
+            return {
+                ...prev,
+                [gid]: { ...group, activeTabId: existing.id }
+            };
+        } else {
+            // Check if it exists in OTHER groups? VSCode usually duplicates or moves.
+            // Let's duplicate for now (allow same file in multiple splits)
+            return {
+                ...prev,
+                [gid]: { 
+                    ...group, 
+                    tabs: [...group.tabs, tab],
+                    activeTabId: tab.id 
+                }
+            };
+        }
+    });
+    
+    if (gid !== activeGroupId) setActiveGroupId(gid);
   };
 
-  const closeTab = (id: string) => {
-    const newTabs = tabs.filter(t => t.id !== id);
-    setTabs(newTabs);
-    if (activeTabId === id) {
-        setActiveTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
-    }
+  const closeTab = (groupId: string, tabId: string) => {
+    setGroups(prev => {
+        const group = prev[groupId];
+        const newTabs = group.tabs.filter(t => t.id !== tabId);
+        let newActiveId = group.activeTabId;
+        
+        if (group.activeTabId === tabId) {
+            newActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
+        }
+        
+        const newState = {
+            ...prev,
+            [groupId]: { ...group, tabs: newTabs, activeTabId: newActiveId }
+        };
+
+        // If group is empty and not the only one, remove group?
+        // VSCode keeps empty groups open until explicitly closed, usually.
+        // Let's keep it simple: keep group open.
+        
+        return newState;
+    });
   };
 
-  const handleReorder = (oldIndex: number, newIndex: number) => {
-      setTabs((items) => arrayMove(items, oldIndex, newIndex));
+  const handleReorder = (groupId: string, oldIndex: number, newIndex: number) => {
+      setGroups(prev => {
+          const group = prev[groupId];
+          return {
+              ...prev,
+              [groupId]: {
+                  ...group,
+                  tabs: arrayMove(group.tabs, oldIndex, newIndex)
+              }
+          };
+      });
   };
 
-  const handleTabOut = async (tabId: string) => {
-      const tab = tabs.find(t => t.id === tabId);
+  const handleTabOut = async (groupId: string, tabId: string) => {
+      const group = groups[groupId];
+      const tab = group.tabs.find(t => t.id === tabId);
       if (!tab) return;
       
       pendingDropRef.current = { id: tabId, claimed: false };
 
       setTimeout(async () => {
           if (pendingDropRef.current && pendingDropRef.current.id === tabId && pendingDropRef.current.claimed) {
-              console.log("Tab claimed by another window, not spawning new one.");
               return;
           }
 
@@ -226,11 +286,32 @@ function AppContent() {
           
           try {
               await invoke("create_window", { label, url });
-              closeTab(tabId);
+              closeTab(groupId, tabId);
           } catch (e) {
               console.error("Failed to detach tab", e);
           }
       }, 200);
+  };
+
+  const handleSplit = () => {
+      const sourceGroup = groups[activeGroupId];
+      const currentTab = sourceGroup.tabs.find(t => t.id === sourceGroup.activeTabId);
+      
+      if (!currentTab) return;
+
+      const newGroupId = `group-${Date.now()}`;
+      
+      setGroups(prev => ({
+          ...prev,
+          [newGroupId]: {
+              id: newGroupId,
+              tabs: [currentTab], // Clone the tab
+              activeTabId: currentTab.id
+          }
+      }));
+      
+      setGroupIds(prev => [...prev, newGroupId]);
+      setActiveGroupId(newGroupId);
   };
 
   // Activity Handlers
@@ -248,23 +329,32 @@ function AppContent() {
       openTab({ id: 'settings', title: t("settings"), type: 'settings', active: true });
   };
 
-    const handleOpenProfiles = () => {
-        openTab({ id: 'profiles-manager', title: t("manageProfiles"), type: 'profiles', active: true });    
-    };
+  const handleOpenProfiles = () => {
+      openTab({ id: 'profiles-manager', title: t("manageProfiles"), type: 'profiles', active: true });    
+  };
+
+  const handleOpenShortcuts = () => {
+      openTab({ id: 'shortcuts', title: t("keyboardShortcuts"), type: 'shortcuts', active: true });
+  };
+
+  const handleOpenTransfers = () => {
+      openTab({ id: 'transfers', title: "Transfer Dashboard", type: 'transfers', active: true });
+  };
   
-        const handleOpenFile = (profile: string, bucket: string, fileKey: string) => {
-            openTab({
-                id: `details-${profile}-${bucket}-${fileKey}`,
-                title: fileKey.split('/').pop() || fileKey,
-                type: 'file-details',
-                data: { profile, bucket, fileKey },
-                active: true
-            });
-        };
-    
-        // Render Sidebar Content based on Activity
-        const renderSidebar = () => {
-          switch (activeActivity) {          case "files":
+  const handleOpenFile = (profile: string, bucket: string, fileKey: string) => {
+      openTab({
+          id: `details-${profile}-${bucket}-${fileKey}`,
+          title: fileKey.split('/').pop() || fileKey,
+          type: 'file-details',
+          data: { profile, bucket, fileKey },
+          active: true
+      });
+  };
+
+  // Sidebar
+  const renderSidebar = () => {
+      switch (activeActivity) {
+          case "files":
               return (
                   <Sidebar title={t("explorer")}>
                       <ExplorerSidebar onBucketSelect={handleBucketSelect} />
@@ -288,87 +378,94 @@ function AppContent() {
       }
   };
 
-  // Render Main Content
-  const renderMainContent = () => {
-      if (tabs.length === 0) {
-          return (
-              <div className="flex-1 flex items-center justify-center text-[#3e3e42] select-none h-full">
-                  <div className="flex flex-col items-center">
-                    <div className="codicon codicon-telescope text-6xl mb-4"></div>
-                    <p>{t("selectBucket")}</p>
-                  </div>
-              </div>
-          );
-      }
+  // Menu Event Listeners
+  useEffect(() => {
+      let cancelled = false;
+      const unlisteners: (() => void)[] = [];
 
-            return tabs.map(tab => {
-                const isActive = tab.id === activeTabId;
-                return (
-                  <div
-                      key={tab.id}
-                      className="h-full w-full"
-                      style={{ display: isActive ? 'block' : 'none' }}
-                  >
-                      {renderTabContent(tab, isActive)}
-                  </div>
-                );
-            });
-        };
-      
-    const renderTabContent = (tab: Tab, isActive: boolean) => {
-        switch (tab.type) {
-            case "file-browser": {
-                const data = tab.data;
-                if (!data) return <div>{t("error")}: Missing tab data</div>;
-                return <FileBrowser
-                          profile={data.profile}
-                          bucket={data.bucket}
-                          isActive={isActive}
-                          onOpenFile={(key) => handleOpenFile(data.profile, data.bucket, key)}
-                       />;
-            }
-            case "file-details": {
-                const data = tab.data;
-                if (!data || !data.fileKey) return <div>{t("error")}: Missing file key</div>;
-                return <FileDetails
-                          profile={data.profile}
-                          bucket={data.bucket}
-                          fileKey={data.fileKey}
-                       />;
-            }
-            case "profiles":              return <ProfilesView />;
-          case "settings":
-              return <SettingsView />;
-          default:
-              return <div>Unknown Tab Type</div>;
-      }
-  }
+      const setupListeners = async () => {
+          const handlers = [
+              { event: 'menu:close-tab', action: () => { if (globalActiveTabId) closeTab(activeGroupId, globalActiveTabId); } },
+              { event: 'menu:open-settings', action: handleOpenSettings },
+              { event: 'menu:open-profiles', action: handleOpenProfiles },
+              { event: 'menu:reload', action: () => window.location.reload() },
+              { event: 'menu:split-right', action: () => handleSplit('right') },
+          ];
+
+          for (const { event, action } of handlers) {
+              const unlisten = await listen(event, () => {
+                  if (!cancelled) action();
+              });
+              if (cancelled) {
+                  unlisten();
+              } else {
+                  unlisteners.push(unlisten);
+              }
+          }
+      };
+
+      setupListeners();
+
+      return () => {
+          cancelled = true;
+          unlisteners.forEach(u => u());
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId, globalActiveTabId]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden text-sm bg-[#1e1e1e] text-[#cccccc]">
       <TitleBar />
       
-      <TabBar 
-        tabs={tabs.map(t => ({ ...t, active: t.id === activeTabId }))}
-        onTabClick={setActiveTabId}
-        onTabClose={closeTab}
-        onReorder={handleReorder}
-        onTabOut={handleTabOut}
-        remoteTab={remoteTab}
-      />
-
       <div className="flex-1 flex flex-row overflow-hidden">
         <ActivityBar 
             activeTab={activeActivity} 
             onTabChange={setActiveActivity} 
             onOpenSettings={handleOpenSettings}
-            isSettingsTabActive={activeTabId === 'settings'}
+            onOpenShortcuts={handleOpenShortcuts}
+            onOpenTransfers={handleOpenTransfers}
+            isSettingsTabActive={globalActiveTabId === 'settings'}
         />
 
         {renderSidebar()}
 
         <MainContent>
-            {renderMainContent()}
+            {/* Split View Container */}
+            <PanelGroup direction="horizontal" className="h-full w-full">
+                {groupIds.map((gid, index) => {
+                    const group = groups[gid];
+                    if (!group) return null;
+
+                    return (
+                        <div key={gid} className="contents">
+                            {index > 0 && (
+                                <PanelResizeHandle className="w-1 bg-[#2d2d2d] hover:bg-[#007fd4] transition-colors cursor-col-resize z-50" />
+                            )}
+                            <Panel defaultSize={100 / groupIds.length} minSize={10}>
+                                <EditorGroup 
+                                    groupId={gid}
+                                    tabs={group.tabs}
+                                    activeTabId={group.activeTabId}
+                                    isActiveGroup={activeGroupId === gid}
+                                    onTabClick={(gid, tid) => {
+                                        setActiveGroupId(gid);
+                                        setGroups(p => ({
+                                            ...p, 
+                                            [gid]: { ...p[gid], activeTabId: tid }
+                                        }));
+                                    }}
+                                    onTabClose={closeTab}
+                                    onReorder={handleReorder}
+                                    onTabOut={handleTabOut}
+                                    onActivateGroup={setActiveGroupId}
+                                    onSplit={() => handleSplit('right')}
+                                    onOpenFile={handleOpenFile}
+                                />
+                            </Panel>
+                        </div>
+                    );
+                })}
+            </PanelGroup>
         </MainContent>
       </div>
       
@@ -377,17 +474,25 @@ function AppContent() {
   );
 }
 
+import { TransferProvider } from "./contexts/TransferContext";
+
 export default function App() {
     return (
-        <NotificationProvider>
-            <StatusBarProvider>
-                <SearchProvider>
-                    <I18nProvider>
-                        <AppContent />
-                        <NotificationCenter />
-                    </I18nProvider>
-                </SearchProvider>
-            </StatusBarProvider>
-        </NotificationProvider>
+        <ErrorBoundary>
+            <NotificationProvider>
+                <StatusBarProvider>
+                    <SearchProvider>
+                        <ClipboardProvider>
+                            <I18nProvider>
+                                <TransferProvider>
+                                    <AppContent />
+                                    <NotificationCenter />
+                                </TransferProvider>
+                            </I18nProvider>
+                        </ClipboardProvider>
+                    </SearchProvider>
+                </StatusBarProvider>
+            </NotificationProvider>
+        </ErrorBoundary>
     );
 }

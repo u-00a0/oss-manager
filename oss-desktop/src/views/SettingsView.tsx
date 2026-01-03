@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, Loader2, Check } from "lucide-react";
+import { FolderOpen, Loader2, Check, Github, Globe } from "lucide-react";
 import { useI18n } from "../contexts/I18nContext";
 import type { Language } from "../contexts/I18nContext";
 import { getVersion } from "@tauri-apps/api/app";
@@ -88,7 +88,7 @@ export default function SettingsView() {
     }
 
     return (
-        <div className="p-6 text-[#cccccc] max-w-2xl mx-auto">
+        <div className="p-6 text-[#cccccc] max-w-2xl mx-auto h-full overflow-y-auto">
             <div className="flex justify-between items-center mb-6 border-b border-[#3e3e42] pb-2">
                 <h1 className="text-2xl font-bold">{t("settings")}</h1>
                 <div className="flex items-center text-xs">
@@ -153,22 +153,48 @@ export default function SettingsView() {
                 {/* About Section */}
                 <section>
                     <h2 className="text-lg font-semibold mb-4 text-[#e7e7e7] pt-4 border-t border-[#3e3e42]">{t("about")}</h2>
-                    <div className="bg-[#252526] p-4 rounded border border-[#3c3c3c] space-y-2">
-                        <div className="flex justify-between">
-                            <span className="text-[#858585]">{t("ossManager")}</span>
-                            <span className="font-bold">OSS Manager</span>
+                    <div className="bg-[#252526] p-6 rounded-md border border-[#3c3c3c] flex flex-col items-center text-center select-none">
+                        <div className="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-blue-900/20">
+                            <span className="text-3xl font-bold text-white">O</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-[#858585]">{t("version")}</span>
-                            <span>{appVersion}</span>
+                        <h3 className="text-xl font-bold text-white mb-1">OSS Manager</h3>
+                        <p className="text-[#858585] text-sm mb-6">High-performance S3 Object Storage Manager</p>
+                        
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm text-left w-full max-w-xs mb-6 bg-[#1e1e1e] p-4 rounded border border-[#333]">
+                            <div className="text-[#858585] text-right">Version</div>
+                            <div className="text-[#cccccc] font-mono">{appVersion}</div>
+                            
+                            <div className="text-[#858585] text-right">Core</div>
+                            <div className="text-[#cccccc]">Rust + Tauri</div>
+                            
+                            <div className="text-[#858585] text-right">License</div>
+                            <div className="text-[#cccccc]">Apache License, Version 2.0</div>
+                            <div className="col-span-2 text-[#cccccc] text-center mt-2">© 2026 u202f, Some Rights Reserved</div>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-[#858585]">{t("author")}</span>
-                            <span>Michael</span>
+
+                        <div className="flex space-x-4">
+                            <a 
+                                href="https://github.com/u-00a0/oss-manager" 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="flex items-center space-x-2 bg-[#3c3c3c] hover:bg-[#4d4d4d] px-4 py-2 rounded transition-colors text-sm text-[#cccccc] hover:text-white"
+                            >
+                                <Github size={16} />
+                                <span>GitHub</span>
+                            </a>
+                            <a 
+                                href="https://github.com/u-00a0/oss-manager/issues" 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="flex items-center space-x-2 bg-[#3c3c3c] hover:bg-[#4d4d4d] px-4 py-2 rounded transition-colors text-sm text-[#cccccc] hover:text-white"
+                            >
+                                <Globe size={16} />
+                                <span>Report Issue</span>
+                            </a>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-[#858585]">Tech Stack</span>
-                            <span>Tauri 2 + React 19 + Rust</span>
+                        
+                        <div className="mt-8 text-xs text-[#555555]">
+                            Copyright © 2025 u202f. All rights reserved.
                         </div>
                     </div>
                 </section>

@@ -8,8 +8,11 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
+use tokio_util::sync::CancellationToken;
 
 const CHUNK_SIZE: u64 = 10 * 1024 * 1024; // 10 MB
+
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub struct ResumableUploader {
     client: Client,
@@ -27,9 +30,23 @@ impl ResumableUploader {
         key: &str,
         file_path: &Path,
         concurrency: usize,
+        progress_callback: Option<Arc<dyn Fn(u64) + Send + Sync>>,
+        cancel_token: Option<CancellationToken>,
     ) -> Result<()> {
         let file_path_str = file_path.to_string_lossy().to_string();
         let file_size = tokio::fs::metadata(file_path).await?.len();
+        
+        // Initial progress (0)
+        if let Some(ref cb) = progress_callback {
+            cb(0);
+        }
+
+        // Check cancellation
+        if let Some(ref token) = cancel_token {
+            if token.is_cancelled() {
+                return Err(anyhow::anyhow!("Cancelled"));
+            }
+        }
 
         // 1. Check for existing active task or create new one
         let task = self.db.find_active_task(bucket, key).await?;
@@ -86,6 +103,12 @@ impl ResumableUploader {
         // 4. Sync with S3 (ListParts)
         let mut continuation_token = None;
         loop {
+            if let Some(ref token) = cancel_token {
+                if token.is_cancelled() {
+                    return Err(anyhow::anyhow!("Cancelled"));
+                }
+            }
+
             let resp = self.client
                 .list_parts()
                 .bucket(bucket)
@@ -114,6 +137,18 @@ impl ResumableUploader {
         // 5. Upload missing parts
         let pending_parts = self.db.get_incomplete_parts(task_id).await?;
         
+        // Calculate initial progress
+        let mut transferred = 0u64;
+        let completed_parts_init = self.db.get_completed_parts(task_id).await?;
+        for p in completed_parts_init {
+            transferred += (p.end_byte - p.start_byte) as u64;
+        }
+        
+        let transferred_atomic = Arc::new(AtomicU64::new(transferred));
+        if let Some(ref cb) = progress_callback {
+            cb(transferred);
+        }
+
         let semaphore = Arc::new(Semaphore::new(concurrency));
         let mut join_set = JoinSet::new();
         let client = self.client.clone();
@@ -124,6 +159,12 @@ impl ResumableUploader {
         let file_path_buf = file_path.to_path_buf();
 
         for part in pending_parts {
+            if let Some(ref token) = cancel_token {
+                if token.is_cancelled() {
+                    return Err(anyhow::anyhow!("Cancelled"));
+                }
+            }
+
             let permit = semaphore.clone().acquire_owned().await.unwrap();
             let client = client.clone();
             let db = db.clone();
@@ -131,15 +172,32 @@ impl ResumableUploader {
             let key = key.clone();
             let upload_id = upload_id_clone.clone();
             let file_path = file_path_buf.clone();
+            
+            let cb = progress_callback.clone();
+            let transferred_atomic = transferred_atomic.clone();
 
             join_set.spawn(async move {
                 let _permit = permit;
-                Self::upload_part(client, db, bucket, key, upload_id, file_path, part).await
+                let part_size = (part.end_byte - part.start_byte) as u64;
+                Self::upload_part(client, db, bucket, key, upload_id, file_path, part).await?;
+                
+                let new_total = transferred_atomic.fetch_add(part_size, Ordering::Relaxed) + part_size;
+                if let Some(callback) = cb {
+                    callback(new_total);
+                }
+                Ok::<(), anyhow::Error>(())
             });
         }
 
         let mut error_occurred = false;
         while let Some(res) = join_set.join_next().await {
+            if let Some(ref token) = cancel_token {
+                if token.is_cancelled() {
+                    join_set.abort_all();
+                    return Err(anyhow::anyhow!("Cancelled"));
+                }
+            }
+
              match res {
                 Ok(Ok(_)) => {},
                 Ok(Err(e)) => {

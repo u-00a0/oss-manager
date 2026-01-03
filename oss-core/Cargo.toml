@@ -28,3 +28,4 @@ walkdir = "2.5.0"
 futures = "0.3.31"
 uuid = { version = "1.19.0", features = ["v4"] }
 tracing = "0.1.44"
+tokio-util = { version = "0.7.17", features = ["default"] }

@@ -8,6 +8,7 @@ use std::path::Path;
 use walkdir::WalkDir;
 use tracing::{info, warn};
 use std::collections::{BTreeMap, HashSet};
+use tokio_util::sync::CancellationToken;
 
 pub struct TransferManager {
     client: Client,
@@ -148,9 +149,17 @@ impl TransferManager {
         dest_key: &str,
         recursive: bool,
         concurrency: usize,
+        progress_callback: Option<std::sync::Arc<dyn Fn(u64) + Send + Sync>>,
+        cancel_token: Option<CancellationToken>,
     ) -> Result<()> {
         let uploader = ResumableUploader::new(self.client.clone(), self.db.clone());
         
+        if let Some(ref token) = cancel_token {
+            if token.is_cancelled() {
+                return Err(anyhow::anyhow!("Cancelled"));
+            }
+        }
+
         if local_path.is_file() {
             // Single file upload
             let key = if dest_key.ends_with('/') || dest_key.is_empty() {
@@ -160,15 +169,25 @@ impl TransferManager {
                 dest_key.to_string()
             };
             info!("Uploading: {:?} -> s3://{}/{}", local_path, bucket, key);
-            uploader.upload_file(bucket, &key, local_path, concurrency).await?;
+            uploader.upload_file(bucket, &key, local_path, concurrency, progress_callback, cancel_token).await?;
         } else if local_path.is_dir() {
             if !recursive {
                 return Err(anyhow!("Source is a directory, use -r to upload recursively"));
             }
             let walker = WalkDir::new(local_path);
+            let transferred_accumulator = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+            
             for entry in walker.into_iter().filter_map(|e| e.ok()) {
+                if let Some(ref token) = cancel_token {
+                    if token.is_cancelled() {
+                        return Err(anyhow::anyhow!("Cancelled"));
+                    }
+                }
+
                 if entry.file_type().is_file() {
                     let path = entry.path();
+                    let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+                    
                     let relative_path = path.strip_prefix(local_path)?;
                     let relative_key = relative_path.to_string_lossy().replace("\\", "/");
                     
@@ -177,9 +196,21 @@ impl TransferManager {
                     } else {
                          format!("{dest_key}/{relative_key}")
                     };
+                    
+                    let sub_cb = if let Some(main_cb) = &progress_callback {
+                        let acc = transferred_accumulator.load(std::sync::atomic::Ordering::Relaxed);
+                        let main_cb_clone = main_cb.clone();
+                        Some(std::sync::Arc::new(move |current_file_bytes| {
+                            main_cb_clone(acc + current_file_bytes);
+                        }) as std::sync::Arc<dyn Fn(u64) + Send + Sync>)
+                    } else {
+                        None
+                    };
 
                     info!("Uploading: {:?} -> s3://{}/{}", path, bucket, key);
-                    uploader.upload_file(bucket, &key, path, concurrency).await?;
+                    uploader.upload_file(bucket, &key, path, concurrency, sub_cb, cancel_token.clone()).await?;
+                    
+                    transferred_accumulator.fetch_add(file_size, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         } else {
@@ -195,8 +226,16 @@ impl TransferManager {
         local_path: &Path,
         recursive: bool,
         concurrency: usize,
+        progress_callback: Option<std::sync::Arc<dyn Fn(u64) + Send + Sync>>,
+        cancel_token: Option<CancellationToken>,
     ) -> Result<()> {
         let downloader = Downloader::new(self.client.clone(), self.db.clone());
+
+        if let Some(ref token) = cancel_token {
+            if token.is_cancelled() {
+                return Err(anyhow::anyhow!("Cancelled"));
+            }
+        }
 
         if recursive {
             let objects = self.ops.list_objects(bucket, src_key, true).await?;
@@ -204,10 +243,20 @@ impl TransferManager {
                  warn!("No objects found with prefix '{}'", src_key);
                  return Ok(());
             }
+            
+            let transferred_accumulator = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
 
             for obj in objects {
+                if let Some(ref token) = cancel_token {
+                    if token.is_cancelled() {
+                        return Err(anyhow::anyhow!("Cancelled"));
+                    }
+                }
+
                 if let Some(key) = obj.key {
                     if key.ends_with('/') { continue; }
+                    
+                    let file_size = obj.size.unwrap_or(0) as u64;
                     
                     let relative_key = if let Some(stripped) = key.strip_prefix(src_key) {
                         stripped
@@ -222,14 +271,26 @@ impl TransferManager {
                     } else {
                          local_path.join(clean_relative)
                     };
+                    
+                    let sub_cb = if let Some(main_cb) = &progress_callback {
+                        let acc = transferred_accumulator.load(std::sync::atomic::Ordering::Relaxed);
+                        let main_cb_clone = main_cb.clone();
+                        Some(std::sync::Arc::new(move |current_file_bytes| {
+                            main_cb_clone(acc + current_file_bytes);
+                        }) as std::sync::Arc<dyn Fn(u64) + Send + Sync>)
+                    } else {
+                        None
+                    };
 
                     info!("Downloading: s3://{}/{} -> {:?}", bucket, key, dest_file);
-                    downloader.download_file(bucket, &key, &dest_file, concurrency).await?;
+                    downloader.download_file(bucket, &key, &dest_file, concurrency, sub_cb, cancel_token.clone()).await?;
+                    
+                    transferred_accumulator.fetch_add(file_size, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         } else {
             info!("Downloading: s3://{}/{} -> {:?}", bucket, src_key, local_path);
-            downloader.download_file(bucket, src_key, local_path, concurrency).await?;
+            downloader.download_file(bucket, src_key, local_path, concurrency, progress_callback, cancel_token).await?;
         }
 
         Ok(())
@@ -312,23 +373,25 @@ impl TransferManager {
         dest_key: &str,
         recursive: bool,
         concurrency: usize,
+        cancel_token: Option<CancellationToken>,
     ) -> Result<()> {
         let temp_dir = std::env::temp_dir().join("oss-manager-transit").join(uuid::Uuid::new_v4().to_string());
         tokio::fs::create_dir_all(&temp_dir).await?;
 
         info!("Transit: Downloading to temporary {:?}", temp_dir);
         
-        self.download(src_bucket, src_key, &temp_dir, recursive, concurrency).await?;
+        // Pass cancel_token to download
+        self.download(src_bucket, src_key, &temp_dir, recursive, concurrency, None, cancel_token.clone()).await?;
 
         info!("Transit: Uploading to s3://{}/{}", dest_bucket, dest_key);
         
         if recursive {
-            self.upload(&temp_dir, dest_bucket, dest_key, true, concurrency).await?;
+            self.upload(&temp_dir, dest_bucket, dest_key, true, concurrency, None, cancel_token).await?;
         } else {
             let mut entries = tokio::fs::read_dir(&temp_dir).await?;
             if let Some(entry) = entries.next_entry().await? {
                 let path = entry.path();
-                self.upload(&path, dest_bucket, dest_key, false, concurrency).await?;
+                self.upload(&path, dest_bucket, dest_key, false, concurrency, None, cancel_token).await?;
             }
         }
 
