@@ -1,6 +1,6 @@
 # OSS Manager
-![GitHub Release](https://img.shields.io/github/v/release/u-00a0/oss-manager)
-![GitHub License](https://img.shields.io/github/license/u-00a0/oss-manager)
+[![GitHub Release](https://img.shields.io/github/v/release/u-00a0/oss-manager)](https://github.com/u-00a0/oss-manager/releases/latest)
+[![GitHub License](https://img.shields.io/github/license/u-00a0/oss-manager)](https://www.apache.org/licenses/LICENSE-2.0)
 <br>
 [![Release All](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml)
 [![Build and Release CLI](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml) 
