@@ -90,7 +90,7 @@ export default function FileDetails({ profile, bucket, fileKey }: FileDetailsPro
         if (!metadata) return;
         
         const notifId = addNotification({
-            title: `Downloading ${metadata.key}...`,
+            title: `${t("downloading")} ${metadata.key}...`,
             type: 'progress'
         });
 
@@ -106,7 +106,7 @@ export default function FileDetails({ profile, bucket, fileKey }: FileDetailsPro
                 const selected = await save({ defaultPath: name });
                 if (!selected) {
                     // Cancelled
-                    updateNotification(notifId, { type: 'info', title: 'Download Cancelled', autoClose: true, progress: undefined, duration: 1000 });
+                    updateNotification(notifId, { type: 'info', title: t("downloadCancelled"), autoClose: true, progress: undefined, duration: 1000 });
                     return;
                 }
                 localPath = selected;
@@ -121,15 +121,15 @@ export default function FileDetails({ profile, bucket, fileKey }: FileDetailsPro
             });
             
             updateNotification(notifId, {
-                title: "Download Completed",
-                message: `Saved to ${localPath}`,
+                title: t("downloadCompleted"),
+                message: `${t("savedTo")} ${localPath}`,
                 type: 'success',
                 progress: 100,
                 duration: 3000
             });
         } catch (e) {
              updateNotification(notifId, {
-                title: "Download Failed",
+                title: t("downloadFailed"),
                 message: String(e),
                 type: 'error',
                 autoClose: false
@@ -157,9 +157,9 @@ export default function FileDetails({ profile, bucket, fileKey }: FileDetailsPro
          return (
             <div className="h-full flex flex-col items-center justify-center text-[#cccccc] gap-4">
                 <AlertCircle size={48} className="text-red-500" />
-                <div className="text-lg">Failed to load file details</div>
+                <div className="text-lg">{t("loadDetailsFailed")}</div>
                 <div className="text-sm text-[#858585] bg-[#252526] p-2 rounded">{error}</div>
-                <button onClick={loadData} className="px-3 py-1 bg-[#0e639c] text-white rounded hover:bg-[#1177bb]">Retry</button>
+                <button onClick={loadData} className="px-3 py-1 bg-[#0e639c] text-white rounded hover:bg-[#1177bb]">{t("retry")}</button>
             </div>
         );
     }
@@ -180,23 +180,23 @@ export default function FileDetails({ profile, bucket, fileKey }: FileDetailsPro
                         <h2 className="text-lg font-bold select-text text-white">{name}</h2>
                         <div className="text-xs text-[#858585] mt-1 space-y-0.5 select-text">
                             <div className="flex items-center">
-                                <span>Key: </span>
+                                <span>{t("key")}: </span>
                                 <span className="text-[#cccccc] font-mono ml-1 mr-2">{metadata.key}</span>
                                 <button
                                     onClick={() => {
                                         navigator.clipboard.writeText(metadata.key);
-                                        addNotification({ title: "Path copied", type: 'success', duration: 2000 });
+                                        addNotification({ title: t("pathCopied"), type: 'success', duration: 2000 });
                                     }}
                                     className="p-1 hover:bg-[#454545] rounded text-[#858585] hover:text-white transition-colors"
-                                    title="Copy Path"
+                                    title={t("copyPath")}
                                 >
                                     <Copy size={12} />
                                 </button>
                             </div>
-                            <div>Size: <span className="text-[#cccccc]">{formatSize(metadata.size)}</span></div>
-                            <div>Last Modified: <span className="text-[#cccccc]">{metadata.last_modified ? new Date(metadata.last_modified).toLocaleString() : '-'}</span></div>
-                            {metadata.content_type && <div>Type: <span className="text-[#cccccc]">{metadata.content_type}</span></div>}
-                            {metadata.etag && <div>ETag: <span className="text-[#cccccc] font-mono">{metadata.etag}</span></div>}
+                            <div>{t("size")}: <span className="text-[#cccccc]">{formatSize(metadata.size)}</span></div>
+                            <div>{t("lastModified")}: <span className="text-[#cccccc]">{metadata.last_modified ? new Date(metadata.last_modified).toLocaleString() : '-'}</span></div>
+                            {metadata.content_type && <div>{t("type")}: <span className="text-[#cccccc]">{metadata.content_type}</span></div>}
+                            {metadata.etag && <div>{t("etag")}: <span className="text-[#cccccc] font-mono">{metadata.etag}</span></div>}
                         </div>
                     </div>
                 </div>
@@ -206,7 +206,7 @@ export default function FileDetails({ profile, bucket, fileKey }: FileDetailsPro
                     className="flex items-center gap-2 bg-[#0e639c] text-white px-3 py-1.5 rounded hover:bg-[#1177bb]"
                 >
                     <Download size={16} />
-                    <span>Download</span>
+                    <span>{t("download")}</span>
                 </button>
             </div>
 
@@ -221,8 +221,8 @@ export default function FileDetails({ profile, bucket, fileKey }: FileDetailsPro
                 ) : (
                     <div className="flex flex-col items-center text-[#858585] gap-2">
                         <File size={48} className="opacity-50" />
-                        <p>No preview available for this file type.</p>
-                        {metadata.size > 5 * 1024 * 1024 && <p className="text-xs">(File is too large for preview)</p>}
+                        <p>{t("noPreview")}</p>
+                        {metadata.size > 5 * 1024 * 1024 && <p className="text-xs">{t("tooLarge")}</p>}
                     </div>
                 )}
             </div>

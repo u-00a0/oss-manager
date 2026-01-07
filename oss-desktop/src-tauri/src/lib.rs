@@ -461,9 +461,25 @@ async fn download_file(
                     src_key
                 };
 
-                tm.copy_cloud(&src_bucket, &effective_src_key, &dest_bucket, &dest_key, is_dir)
+                if src_bucket == dest_bucket {
+                    tm.copy_cloud(&src_bucket, &effective_src_key, &dest_bucket, &dest_key, is_dir)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                } else {
+                    // Cross-bucket copy (transit via local)
+                    // Default concurrency: 4, No cancellation token for now
+                    tm.copy_cross_bucket(
+                        &src_bucket, 
+                        &effective_src_key, 
+                        &dest_bucket, 
+                        &dest_key, 
+                        is_dir, 
+                        4, 
+                        None
+                    )
                     .await
                     .map_err(|e| e.to_string())?;
+                }
             
                 Ok(())
             }
@@ -516,20 +532,22 @@ async fn download_file(
 }
 
 #[tauri::command]
-fn save_profile(name: String, profile: Profile) -> Result<(), String> {
+fn save_profile(app: AppHandle, name: String, profile: Profile) -> Result<(), String> {
     let path = get_config_path();
     let mut manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
     manager.add_profile(name, profile);
     manager.save_to_file(&path).map_err(|e| e.to_string())?;
+    let _ = app.emit("profiles-updated", ());
     Ok(())
 }
 
 #[tauri::command]
-fn delete_profile(name: String) -> Result<(), String> {
+fn delete_profile(app: AppHandle, name: String) -> Result<(), String> {
     let path = get_config_path();
     let mut manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
     manager.profiles.remove(&name);
     manager.save_to_file(&path).map_err(|e| e.to_string())?;
+    let _ = app.emit("profiles-updated", ());
     Ok(())
 }
 
@@ -600,6 +618,7 @@ pub fn run() {
           app.handle().plugin(tauri_plugin_process::init())?;
           app.handle().plugin(tauri_plugin_dialog::init())?;
           app.handle().plugin(tauri_plugin_fs::init())?;
+          app.handle().plugin(tauri_plugin_shell::init())?;
           
           app.manage(TransferTokens(DashMap::new()));
 

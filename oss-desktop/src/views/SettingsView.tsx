@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-shell";
 import { FolderOpen, Loader2, Check, Github, Globe } from "lucide-react";
 import { useI18n } from "../contexts/I18nContext";
 import type { Language } from "../contexts/I18nContext";
@@ -74,7 +75,7 @@ export default function SettingsView() {
 
     async function handleBrowse() {
         try {
-            const selected = await open({
+            const selected = await openDialog({
                 directory: true,
                 multiple: false,
                 defaultPath: downloadDir || undefined,
@@ -113,7 +114,7 @@ export default function SettingsView() {
             <div className="space-y-6">
                 {/* General Settings */}
                 <section>
-                    <h2 className="text-lg font-semibold mb-4 text-[#e7e7e7]">General</h2>
+                    <h2 className="text-lg font-semibold mb-4 text-[#e7e7e7]">{t("general")}</h2>
                     
                     <div className="grid gap-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
@@ -158,10 +159,10 @@ export default function SettingsView() {
                             <span className="text-3xl font-bold text-white">O</span>
                         </div>
                         <h3 className="text-xl font-bold text-white mb-1">OSS Manager</h3>
-                        <p className="text-[#858585] text-sm mb-6">High-performance S3 Object Storage Manager</p>
+                        <p className="text-[#858585] text-sm mb-6">{t("highPerformance")}</p>
                         
                         <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm text-left w-full max-w-xs mb-6 bg-[#1e1e1e] p-4 rounded border border-[#333]">
-                            <div className="text-[#858585] text-right">Version</div>
+                            <div className="text-[#858585] text-right">{t("version")}</div>
                             <div className="text-[#cccccc] font-mono">{appVersion}</div>
                             
                             <div className="text-[#858585] text-right">Core</div>
@@ -173,28 +174,20 @@ export default function SettingsView() {
                         </div>
 
                         <div className="flex space-x-4">
-                            <a 
-                                href="https://github.com/u-00a0/oss-manager" 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="flex items-center space-x-2 bg-[#3c3c3c] hover:bg-[#4d4d4d] px-4 py-2 rounded transition-colors text-sm text-[#cccccc] hover:text-white"
+                            <div 
+                                onClick={() => open('https://github.com/u-00a0/oss-manager')}
+                                className="flex items-center space-x-2 bg-[#3c3c3c] hover:bg-[#4d4d4d] px-4 py-2 rounded transition-colors text-sm text-[#cccccc] hover:text-white cursor-pointer"
                             >
                                 <Github size={16} />
                                 <span>GitHub</span>
-                            </a>
-                            <a 
-                                href="https://github.com/u-00a0/oss-manager/issues" 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="flex items-center space-x-2 bg-[#3c3c3c] hover:bg-[#4d4d4d] px-4 py-2 rounded transition-colors text-sm text-[#cccccc] hover:text-white"
+                            </div>
+                            <div 
+                                onClick={() => open('https://github.com/u-00a0/oss-manager/issues')}
+                                className="flex items-center space-x-2 bg-[#3c3c3c] hover:bg-[#4d4d4d] px-4 py-2 rounded transition-colors text-sm text-[#cccccc] hover:text-white cursor-pointer"
                             >
                                 <Globe size={16} />
-                                <span>Report Issue</span>
-                            </a>
-                        </div>
-                        
-                        <div className="mt-8 text-xs text-[#555555]">
-                            Copyright © 2025 u202f. All rights reserved.
+                                <span>{t("reportIssue")}</span>
+                            </div>
                         </div>
                     </div>
                 </section>

@@ -31,7 +31,7 @@ export default function ShortcutsView() {
 
     return (
         <div className="p-6 text-[#cccccc] max-w-4xl mx-auto h-full overflow-y-auto select-none">
-            <h1 className="text-2xl font-bold mb-6">Keyboard Shortcuts</h1>
+            <h1 className="text-2xl font-bold mb-6">{t("keyboardShortcutsTitle")}</h1>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {shortcuts.map(cat => (

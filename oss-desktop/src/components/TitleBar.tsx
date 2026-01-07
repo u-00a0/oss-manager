@@ -125,6 +125,11 @@ export default function TitleBar() {
         setActiveMenu(null);
     };
 
+    const handleTogglePreview = () => {
+        emit("menu:toggle-preview");
+        setActiveMenu(null);
+    };
+
     const handleToggleDevTools = () => {
         invoke("open_devtools"); // This might need a custom command or just ignore if not easy
         setActiveMenu(null);
@@ -145,6 +150,7 @@ export default function TitleBar() {
         setActiveMenu(null); 
     };
     const handleSelectAll = () => { emit("menu:select-all"); setActiveMenu(null); };
+    const handleRename = () => { emit("menu:rename"); setActiveMenu(null); };
     const handleSaveAs = () => { emit("menu:save-as"); setActiveMenu(null); };
     const handleDownload = () => { emit("menu:download"); setActiveMenu(null); };
 
@@ -200,6 +206,7 @@ export default function TitleBar() {
                 { label: t("copy"), action: handleCopy, shortcut: "Ctrl+C" },
                 { label: t("paste"), action: handlePaste, shortcut: "Ctrl+V" },
                 { separator: true },
+                { label: t("rename"), action: handleRename, shortcut: "F2" },
                 { label: t("find"), action: handleFind, shortcut: "Ctrl+F" },
                 { separator: true },
                 { label: t("selectAll"), action: handleSelectAll, shortcut: "Ctrl+A" }
@@ -222,7 +229,8 @@ export default function TitleBar() {
             items: [
                 { label: t("reloadWindow"), action: handleReload, shortcut: "Ctrl+R" },
                 { label: t("refreshExplorer"), action: () => emit("menu:reload"), shortcut: "F5" },
-                { label: "Split Editor Right", action: handleSplitEditor, shortcut: "Ctrl+\\" },
+                { label: t("splitEditorRight"), action: handleSplitEditor, shortcut: "Ctrl+\\" },
+                { label: t("togglePreviewPane"), action: handleTogglePreview },
                 { separator: true },
                 { label: t("toggleDevTools"), action: handleToggleDevTools }
             ] 

@@ -35,7 +35,7 @@ export default function StatusBar() {
                         isVisible && "bg-[#1f8ad2]"
                     )}
                     onClick={toggleVisibility}
-                    title="Toggle Notifications"
+                    title={t("toggleNotifications")}
                 >
                     <Bell size={12} />
                     {notifications.length > 0 && (

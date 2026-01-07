@@ -41,12 +41,12 @@ export default function ActivityBar({ activeTab, onTabChange, onOpenSettings, on
             />
             <ActivityItem
                 icon={<Activity size={24} />}
-                active={false} // Always opens a tab, not a sidebar view
+                active={activeTab === "transfers"}
                 onClick={() => {
                     closeSettingsMenu();
-                    onOpenTransfers();
+                    onTabChange("transfers");
                 }}
-                title="Transfers"
+                title={t("transfers")}
             />
 
             <div className="flex-1" />

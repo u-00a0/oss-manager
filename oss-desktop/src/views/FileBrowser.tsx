@@ -7,6 +7,9 @@ import type { FileEntry, AppConfig } from "../types";
 import ContextMenu from "../components/ContextMenu";
 import type { MenuItem } from "../components/ContextMenu";
 import ObjectPicker from "../components/ObjectPicker";
+import PreviewPane from "../components/PreviewPane";
+import RenameModal from "../components/RenameModal";
+import ConfirmModal from "../components/ConfirmModal";
 import { useNotification } from "../contexts/NotificationContext";
 import { useStatusBar } from "../contexts/StatusBarContext";
 import { useSearch } from "../contexts/SearchContext";
@@ -29,7 +32,8 @@ import {
     Save,
     FolderPlus,
     File as FileIcon,
-    Scissors
+    Scissors,
+    FileEdit
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -69,6 +73,14 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
     const [error, setError] = useState("");
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const [internalDragTarget, setInternalDragTarget] = useState<string | null>(null);
+    const [showPreview, setShowPreview] = useState(false);
+    const [renameTarget, setRenameTarget] = useState<FileEntry | null>(null);
+    const [confirmState, setConfirmState] = useState<{
+        open: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    }>({ open: false, title: "", message: "", onConfirm: () => {} });
     
     // Copy/Move Picker State
     const [pickerState, setPickerState] = useState<{ open: boolean; mode: "copy" | "move"; items: FileEntry[] }>({ open: false, mode: "copy", items: [] });
@@ -98,7 +110,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                 <div className="flex items-center space-x-3 text-xs">
                     <span className="font-semibold">{bucket}</span>
                     <span className="w-[1px] h-3 bg-white/20"></span>
-                    <span>{filteredFiles.length} {t("items")} {isActive && searchQuery && `(of ${files.length})`}</span>
+                    <span>{filteredFiles.length} {t("items")} {isActive && searchQuery && `(${t("of")} ${files.length})`}</span>
                     {loading && <span>({t("loading")})</span>}
                 </div>
             );
@@ -129,7 +141,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
 
     async function handleSaveAsSelected() {
         if (selectedPaths.size !== 1) {
-             addNotification({ title: "Please select a single file to Save As", type: 'info' });
+             addNotification({ title: t("selectSingleFile"), type: 'info' });
              return;
         }
         const file = files.find(f => selectedPaths.has(f.path));
@@ -156,6 +168,8 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                 { event: 'menu:reload', handler: loadFiles },
                 { event: 'menu:download', handler: handleDownloadSelected },
                 { event: 'menu:save-as', handler: handleSaveAsSelected },
+                { event: 'menu:toggle-preview', handler: () => setShowPreview(p => !p) },
+                { event: 'menu:rename', handler: handleRenameSelected },
             ];
 
             for (const { event, handler } of handlers) {
@@ -355,7 +369,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
     async function handleUpload(filePaths: string[]) {
         setLoading(true);
         const notifId = addNotification({
-            title: `Uploading ${filePaths.length} items...`,
+            title: `${t("uploadingItems")} (${filePaths.length})`,
             type: 'progress',
             progress: 0
         });
@@ -391,7 +405,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                 });
             }
             updateNotification(notifId, {
-                title: "Upload Completed",
+                title: t("uploadCompleted"),
                 type: 'success',
                 progress: 100,
                 duration: 3000
@@ -400,7 +414,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
         } catch (e) {
             console.error("Upload failed", e);
             updateNotification(notifId, {
-                title: "Upload Failed",
+                title: t("uploadFailed"),
                 message: String(e),
                 type: 'error',
                 autoClose: false
@@ -581,38 +595,52 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
     }
     
     async function handleDelete(file: FileEntry, skipConfirm = false) {
-        if (!skipConfirm && !confirm(`Are you sure you want to delete ${file.name}?`)) return; 
-        
-        const notifId = addNotification({
-            title: `Deleting ${file.name}...`,
-            type: 'progress'
-        });
+        const performDelete = async () => {
+            const notifId = addNotification({
+                title: `${t("deleting")} ${file.name}...`,
+                type: 'progress'
+            });
 
-        try {
-            await invoke("delete_object", {
-                profileName: profile,
-                bucket,
-                key: file.path
-            });
-            updateNotification(notifId, {
-                title: `Deleted ${file.name}`,
-                type: 'success',
-                duration: 2000
-            });
-            loadFiles();
-        } catch (e) {
-            updateNotification(notifId, {
-                title: "Delete Failed",
-                message: String(e),
-                type: 'error',
-                autoClose: false
+            try {
+                await invoke("delete_object", {
+                    profileName: profile,
+                    bucket,
+                    key: file.path
+                });
+                updateNotification(notifId, {
+                    title: `${t("deleted")} ${file.name}`,
+                    type: 'success',
+                    duration: 2000
+                });
+                loadFiles();
+            } catch (e) {
+                updateNotification(notifId, {
+                    title: t("deleteFailed"),
+                    message: String(e),
+                    type: 'error',
+                    autoClose: false
+                });
+            }
+        };
+
+        if (skipConfirm) {
+            performDelete();
+        } else {
+            setConfirmState({
+                open: true,
+                title: t("confirmDeleteTitle"),
+                message: t("confirmDeleteItems"),
+                onConfirm: () => {
+                    setConfirmState(prev => ({ ...prev, open: false }));
+                    performDelete();
+                }
             });
         }
     }
     
     async function handleDownload(file: FileEntry) {
         const notifId = addNotification({
-            title: `Downloading ${file.name}...`,
+            title: `${t("downloading")} ${file.name}...`,
             type: 'progress'
         });
 
@@ -642,8 +670,8 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                 delete activeDownloads.current[file.path];
 
                 updateNotification(notifId, {
-                    title: "Download Completed",
-                    message: `Saved to ${localPath}`,
+                    title: t("downloadCompleted"),
+                    message: `${t("savedTo")} ${localPath}`,
                     type: 'success',
                     progress: 100,
                     duration: 3000
@@ -654,7 +682,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
             }
         } catch (e) {
              updateNotification(notifId, {
-                title: "Download Failed",
+                title: t("downloadFailed"),
                 message: String(e),
                 type: 'error',
                 autoClose: false
@@ -670,7 +698,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
             
             if (localPath) {
                 const notifId = addNotification({
-                    title: `Downloading ${file.name}...`,
+                    title: `${t("downloading")} ${file.name}...`,
                     type: 'progress'
                 });
 
@@ -696,15 +724,15 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                     delete activeDownloads.current[file.path];
 
                     updateNotification(notifId, {
-                        title: "Download Completed",
-                        message: `Saved to ${localPath}`,
+                        title: t("downloadCompleted"),
+                        message: `${t("savedTo")} ${localPath}`,
                         type: 'success',
                         progress: 100,
                         duration: 3000
                     });
                 } catch(e) {
                      updateNotification(notifId, {
-                        title: "Download Failed",
+                        title: t("downloadFailed"),
                         message: String(e),
                         type: 'error',
                         autoClose: false
@@ -714,6 +742,63 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
         } catch (e) {
             console.error(e);
         }
+    }
+
+    async function handleRenameSubmit(newName: string) {
+        if (!renameTarget) return;
+        setRenameTarget(null);
+
+        const oldName = renameTarget.name;
+        const oldKey = renameTarget.path;
+        let newKey = prefix + newName;
+        if (renameTarget.is_dir) newKey += "/";
+
+        if (oldKey === newKey) return;
+
+        const notifId = addNotification({
+            title: `${t("renaming")} ${oldName}...`,
+            type: "progress"
+        });
+
+        try {
+            await invoke("move_objects", {
+                profileName: profile,
+                srcBucket: bucket,
+                srcKey: oldKey,
+                destBucket: bucket,
+                destKey: newKey,
+                isDir: renameTarget.is_dir
+            });
+
+            updateNotification(notifId, {
+                title: `${t("renamed")} ${oldName} -> ${newName}`,
+                type: "success",
+                duration: 2000
+            });
+            
+            loadFiles();
+        } catch (e) {
+            updateNotification(notifId, {
+                title: t("operationFailed"),
+                message: String(e),
+                type: "error",
+                autoClose: false
+            });
+        }
+    }
+
+    function handleRenameSelected() {
+        if (selectedPaths.size !== 1) {
+             // addNotification({ title: t("selectSingleFile"), type: 'info' }); // Reuse key or add new "selectSingleRename"? 
+             // Let's just use generic info for now or reuse selectSingleFile logic but context is Rename.
+             // Actually I can reuse "selectSingleFile" text if it says "Please select a single file...".
+             // But it says "... to Save As".
+             // I'll skip notification for empty selection on F2 usually, or just show if selection > 1.
+             if (selectedPaths.size > 1) addNotification({ title: "Select only one item to rename", type: 'info' });
+             return;
+        }
+        const file = files.find(f => selectedPaths.has(f.path));
+        if (file) setRenameTarget(file);
     }
 
     async function handlePickerSelect(destBucket: string, destPrefix: string) {
@@ -827,6 +912,11 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                         label: t("moveTo"),
                         icon: <Scissors size={14} />,
                         action: () => setPickerState({ open: true, mode: "move", items: [file] })
+                    },
+                    {
+                        label: t("rename"),
+                        icon: <FileEdit size={14} />,
+                        action: () => setRenameTarget(file)
                     },
                     { separator: true, label: "" },
                     {
@@ -944,9 +1034,15 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                 e.preventDefault();
                 const toDelete = files.filter(f => selectedPaths.has(f.path));
                 if (toDelete.length > 0) {
-                    if (confirm(`Are you sure you want to delete ${toDelete.length} items?`)) {
-                         toDelete.forEach(f => handleDelete(f, true));
-                    }
+                    setConfirmState({
+                        open: true,
+                        title: t("confirmDeleteTitle"),
+                        message: t("confirmDeleteItems"),
+                        onConfirm: () => {
+                            setConfirmState(prev => ({ ...prev, open: false }));
+                            toDelete.forEach(f => handleDelete(f, true));
+                        }
+                    });
                 }
                 break;
             }
@@ -968,7 +1064,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                 
              case "F2":
                  e.preventDefault();
-                 addNotification({ title: "Rename not implemented yet", type: "info" });
+                 handleRenameSelected();
                  break;
         }
     }
@@ -1141,7 +1237,8 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-auto bg-[#1e1e1e] relative">
+            <div className="flex-1 flex overflow-hidden relative">
+                <div className="flex-1 overflow-auto bg-[#1e1e1e] relative">
                 {error && <div className="text-red-500 p-4">Error: {error}</div>}
 
                 {loading && (
@@ -1153,7 +1250,7 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
 
                 {!loading && filteredFiles.length === 0 && !error && (
                     <div className="text-[#858585] text-center mt-10">
-                        {searchQuery ? "No matching files found." : "No files found."}
+                        {searchQuery ? t("noMatchingFiles") : t("noFiles")}
                     </div>
                 )}
 
@@ -1169,9 +1266,9 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                                     onChange={handleSelectAll}
                                 />
                             </div>
-                            <div className="flex-1">Name</div>
-                            <div className="w-24 text-right">Size</div>
-                            <div className="w-40 text-right">Date Modified</div>
+                            <div className="flex-1">{t("name")}</div>
+                            <div className="w-24 text-right">{t("size")}</div>
+                            <div className="w-40 text-right">{t("dateModified")}</div>
                         </div>
 
                         {/* List Items */}
@@ -1314,6 +1411,35 @@ export default function FileBrowser({ profile, bucket, isActive, onOpenFile }: F
                     </div>
                 )}
             </div>
+            
+            {showPreview && (
+                <PreviewPane 
+                    profile={profile} 
+                    bucket={bucket} 
+                    file={files.find(f => f.path === lastSelectedPath) || null} 
+                />
+            )}
+            </div>
+
+            {/* Confirm Modal */}
+            {confirmState.open && (
+                <ConfirmModal
+                    title={confirmState.title}
+                    message={confirmState.message}
+                    isDanger={true}
+                    onConfirm={confirmState.onConfirm}
+                    onCancel={() => setConfirmState(prev => ({ ...prev, open: false }))}
+                />
+            )}
+
+            {/* Rename Modal */}
+            {renameTarget && (
+                <RenameModal 
+                    currentName={renameTarget.name}
+                    onRename={handleRenameSubmit}
+                    onCancel={() => setRenameTarget(null)}
+                />
+            )}
 
             {/* Object Picker Modal */}
             {pickerState.open && (

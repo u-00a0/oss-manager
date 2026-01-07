@@ -106,7 +106,7 @@ export default function TransferDashboard() {
                             onResume={() => resumeTask(task.id)}
                         />
                     ))}
-                    {activeTasks.length === 0 && <div className="text-[#858585] text-sm italic">No active transfers</div>}
+                    {activeTasks.length === 0 && <div className="text-[#858585] text-sm italic">{t("noActiveTransfers")}</div>}
                 </div>
 
                 <h3 className="text-lg font-bold mb-4 text-white">{t("completedTransfers")} ({completedTasks.length})</h3>

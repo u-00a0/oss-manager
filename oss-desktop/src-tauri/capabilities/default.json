@@ -17,7 +17,13 @@
     "core:event:default",
     "dialog:default",
     "fs:default",
+    "fs:allow-write-text-file",
     "log:default",
-    "process:allow-exit"
+    "process:allow-exit",
+    "shell:allow-open",
+    {
+      "identifier": "fs:scope",
+      "allow": ["**"]
+    }
   ]
 }

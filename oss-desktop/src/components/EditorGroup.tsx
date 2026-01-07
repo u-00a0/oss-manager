@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import TabBar from "./TabBar";
 import FileBrowser from "../views/FileBrowser";
 import FileDetails from "../views/FileDetails";
-import ProfilesView from "../views/ProfilesView";
+import ProfileDetailView from "../views/ProfileDetailView";
 import SettingsView from "../views/SettingsView";
 import ShortcutsView from "../views/ShortcutsView";
 import TransferDashboard from "../views/TransferDashboard";
@@ -81,7 +81,8 @@ export default function EditorGroup({
                           fileKey={data.fileKey}
                        />;
             }
-            case "profiles": return <ProfilesView />;
+            case "profile-details":
+                return <ProfileDetailView profileName={activeTab.data?.name || ""} />;
             case "settings": return <SettingsView />;
             case "shortcuts": return <ShortcutsView />;
             case "transfers": return <TransferDashboard />;
@@ -93,6 +94,7 @@ export default function EditorGroup({
         <div 
             className="flex flex-col h-full min-w-0" 
             onClick={() => onActivateGroup(groupId)}
+            data-group-id={groupId}
         >
             <TabBar 
                 tabs={tabBarTabs}

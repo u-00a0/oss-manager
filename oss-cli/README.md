@@ -1,8 +1,8 @@
 # OSS Manager CLI
 
-**`oss-cli`** 是一款高性能的命令行工具，旨在为 S3 存储管理提供类 Unix 指令的操作体验。它具备极高的灵活性，完美支持断点续传与多账户管理。
+**`oss-cli`** 是一款高性能的命令行工具，旨在为 S3 存储管理提供类 Unix 指令的操作体验。它具备极高的灵活性，完美支持断点续传、递归操作与多账户管理。
 
-## 安装指南
+## 📦 安装指南
 
 ### Windows
 从 [Releases](https://github.com/u-00a0/oss-manager/releases) 页面下载最新的 `.exe` 安装程序。
@@ -19,7 +19,7 @@ sudo dpkg -i oss-manager-cli_x.x.x_amd64.deb
 cargo install --path oss-cli
 ```
 
-## 指令参考
+## 🎮 指令参考
 
 ### 账户配置管理
 
@@ -41,11 +41,13 @@ cargo install --path oss-cli
 
 ### 全局选项
 
-*   `--recursive` / `-r`: 递归处理文件夹及其子内容。
+*   `--recursive` / `-r`: 递归处理文件夹及其子内容（适用于 `cp`, `mv`, `rm`）。
 *   `--profile` / `-p`: 指定操作所使用的账户名称（覆盖默认值）。
 
-## 自动化支持
+## 🤖 自动化支持
 
-CLI 遵循标准 POSIX 规范，输出结果清晰且易于通过 `grep` 或 `awk` 处理。退出码（Exit Codes）定义如下：
+CLI 遵循标准 POSIX 规范，输出结果清晰且易于通过 `grep` 或 `awk` 处理。
+
+### 退出码 (Exit Codes)
 *   `0`: 操作成功完成。
 *   `非0`: 发生错误（如凭证无效、网络中断或路径不存在）。

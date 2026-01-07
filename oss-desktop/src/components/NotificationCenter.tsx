@@ -11,10 +11,10 @@ export default function NotificationCenter() {
         <div className="fixed bottom-9 right-4 z-[9999] flex flex-col items-end pointer-events-none max-h-[calc(100vh-60px)]">
             {notifications.length > 0 && (
                 <div className="pointer-events-auto bg-[#252526] border border-[#454545] text-[#cccccc] text-xs px-3 py-1.5 mb-2 rounded-sm flex items-center gap-4 shadow-lg select-none">
-                    <span className="font-semibold">Notifications</span>
+                    <span className="font-semibold">{t("notifications")}</span>
                     <div className="flex items-center gap-1">
                          <span className="bg-[#007fd4] text-white px-1.5 rounded-full text-[10px] min-w-[16px] text-center">{notifications.length}</span>
-                         <button onClick={toggleVisibility} className="hover:text-white ml-1" title="Collapse">
+                         <button onClick={toggleVisibility} className="hover:text-white ml-1" title={t("collapse")}>
                             <ChevronDown size={14} />
                          </button>
                     </div>

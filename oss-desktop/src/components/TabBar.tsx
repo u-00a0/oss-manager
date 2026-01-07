@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, SplitSquareHorizontal } from "lucide-react";
+import { X, SplitSquareHorizontal, PanelRight } from "lucide-react";
 import clsx from "clsx";
 import {
   DndContext,
@@ -21,6 +21,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useI18n } from "../contexts/I18nContext";
 import ContextMenu from "./ContextMenu";
 import type { MenuItem } from "./ContextMenu";
 import type { Tab } from "../types";
@@ -36,9 +37,10 @@ interface TabBarProps {
 }
 
 export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabOut, onSplit, remoteTab }: TabBarProps) {
+    const { t } = useI18n();
     const [activeId, setActiveId] = useState<string | null>(null);
     const windowLabel = useRef("");
-    const lastMousePos = useRef({ x: 0, y: 0 });
+    const lastMousePos = useRef({ x: 0, y: 0, clientX: 0, clientY: 0 });
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, items: MenuItem[] } | null>(null);
 
     useEffect(() => {
@@ -61,7 +63,12 @@ export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabO
         if (!activeId) return;
 
         const handleWindowMouseMove = (e: MouseEvent) => {
-            lastMousePos.current = { x: e.screenX, y: e.screenY };
+            lastMousePos.current = { 
+                x: e.screenX, 
+                y: e.screenY,
+                clientX: e.clientX,
+                clientY: e.clientY
+            };
             const tab = tabs.find(t => t.id === activeId);
             if (tab) {
                 emit('tab-drag-move', {
@@ -93,7 +100,9 @@ export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabO
                 tabId: currentId,
                 tab: tab,
                 screenX: lastMousePos.current.x,
-                screenY: lastMousePos.current.y
+                screenY: lastMousePos.current.y,
+                clientX: lastMousePos.current.clientX,
+                clientY: lastMousePos.current.clientY
             });
         }
 
@@ -119,11 +128,11 @@ export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabO
             y: e.clientY,
             items: [
                 { 
-                    label: "Close", 
+                    label: t("closeTab"), 
                     action: () => onTabClose(tabId) 
                 },
                 { 
-                    label: "Close Others", 
+                    label: t("closeOthers"), 
                     action: () => {
                         const toClose = tabs.filter(t => t.id !== tabId);
                         toClose.forEach(t => onTabClose(t.id));
@@ -131,7 +140,7 @@ export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabO
                     disabled: tabs.length <= 1
                 },
                 { 
-                    label: "Close to the Right", 
+                    label: t("closeRight"), 
                     action: () => {
                         const toClose = tabs.slice(index + 1);
                         toClose.forEach(t => onTabClose(t.id));
@@ -140,7 +149,7 @@ export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabO
                 },
                 { separator: true },
                 {
-                    label: "Split Right",
+                    label: t("splitRight"),
                     action: () => onSplit && onSplit()
                 }
             ]
@@ -197,17 +206,24 @@ export default function TabBar({ tabs, onTabClick, onTabClose, onReorder, onTabO
                             </DragOverlay>
                         </DndContext>
                     ) : (
-                        <div className="px-4 text-xs text-[#858585] italic">No open tabs</div>
+                        <div className="px-4 text-xs text-[#858585] italic">{t("noOpenTabs")}</div>
                     )}
                 </div>
                 
                 {/* Actions Area */}
                 <div className="flex items-center px-1 h-full">
+                    <button 
+                        className="p-1 hover:bg-[#3c3c3c] rounded text-[#cccccc] hover:text-white mr-1"
+                        onClick={() => emit('menu:toggle-preview')}
+                        title={t("togglePreviewPane")}
+                    >
+                        <PanelRight size={14} />
+                    </button>
                     {onSplit && (
                         <button 
                             className="p-1 hover:bg-[#3c3c3c] rounded text-[#cccccc] hover:text-white"
                             onClick={onSplit}
-                            title="Split Editor Right (Ctrl+\)"
+                            title={`${t("splitEditorRight")} (Ctrl+\\)`}
                         >
                             <SplitSquareHorizontal size={14} />
                         </button>

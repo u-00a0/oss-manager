@@ -8,6 +8,8 @@ import EditorGroup from "./components/EditorGroup";
 import type { Tab } from "./types";
 
 import ExplorerSidebar from "./views/ExplorerSidebar";
+import TransferSidebar from "./views/TransferSidebar";
+import ProfilesSidebar from "./views/ProfilesSidebar";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 
 import { I18nProvider, useI18n } from "./contexts/I18nContext";
@@ -38,6 +40,8 @@ interface TabDragDropEvent {
         tab: Tab;
         screenX: number;
         screenY: number;
+        clientX?: number;
+        clientY?: number;
     };
 }
 
@@ -108,8 +112,61 @@ function AppContent() {
     
     // ... (Keeping listeners mostly similar but targeting activeGroupId)
     const unlistenDrop = listen('tab-drag-drop', (event: TabDragDropEvent) => {
-        const { windowLabel: srcLabel, tabId, tab, screenX, screenY } = event.payload;
-        if (srcLabel === windowLabel.current) return;
+        const { windowLabel: srcLabel, tabId, tab, screenX, screenY, clientX, clientY } = event.payload;
+        
+        if (srcLabel === windowLabel.current) {
+            // Intra-Window Drop Logic
+            if (clientX !== undefined && clientY !== undefined) {
+                 const elements = document.elementsFromPoint(clientX, clientY);
+                 const targetGroupEl = elements.find(el => el.closest('[data-group-id]'));
+                 const groupEl = targetGroupEl?.closest('[data-group-id]');
+                 
+                 if (groupEl) {
+                     const targetGroupId = groupEl.getAttribute('data-group-id');
+                     
+                     setGroups(currentGroups => {
+                         // Find source group
+                         let sourceGroupId: string | null = null;
+                         for(const gid in currentGroups) {
+                             if (currentGroups[gid].tabs.find(t => t.id === tabId)) {
+                                 sourceGroupId = gid;
+                                 break;
+                             }
+                         }
+                         
+                         if (targetGroupId && sourceGroupId && targetGroupId !== sourceGroupId) {
+                             const srcGroup = currentGroups[sourceGroupId];
+                             const targetGroup = currentGroups[targetGroupId];
+                             
+                             if (!srcGroup || !targetGroup) return currentGroups;
+
+                             const newSrcTabs = srcGroup.tabs.filter(t => t.id !== tabId);
+                             let newSrcActiveId = srcGroup.activeTabId;
+                             if (newSrcActiveId === tabId) {
+                                 newSrcActiveId = newSrcTabs.length > 0 ? newSrcTabs[newSrcTabs.length - 1].id : null;
+                             }
+                             
+                             const newTargetTabs = [...targetGroup.tabs, tab];
+                             
+                             // Mark as claimed to prevent window spawn
+                             if (pendingDropRef.current && pendingDropRef.current.id === tabId) {
+                                 pendingDropRef.current.claimed = true;
+                             } else {
+                                 pendingDropRef.current = { id: tabId, claimed: true };
+                             }
+
+                             return {
+                                 ...currentGroups,
+                                 [sourceGroupId]: { ...srcGroup, tabs: newSrcTabs, activeTabId: newSrcActiveId },
+                                 [targetGroupId]: { ...targetGroup, tabs: newTargetTabs, activeTabId: tabId }
+                             };
+                         }
+                         return currentGroups;
+                     });
+                 }
+            }
+            return;
+        }
 
         const winX = window.screenX;
         const winY = window.screenY;
@@ -329,7 +386,7 @@ function AppContent() {
   };
 
   const handleOpenProfiles = () => {
-      openTab({ id: 'profiles-manager', title: t("manageProfiles"), type: 'profiles', active: true });    
+      setActiveActivity('profiles');
   };
 
   const handleOpenShortcuts = () => {
@@ -350,6 +407,26 @@ function AppContent() {
       });
   };
 
+  const handleOpenProfileDetail = (name: string) => {
+      openTab({
+          id: `profile-${name}`,
+          title: name,
+          type: 'profile-details',
+          data: { name },
+          active: true
+      });
+  };
+
+  const handleNewProfile = () => {
+      openTab({
+          id: `profile-new-${Date.now()}`,
+          title: t("newProfile"),
+          type: 'profile-details',
+          data: { name: "" },
+          active: true
+      });
+  };
+
   // Sidebar
   const renderSidebar = () => {
       switch (activeActivity) {
@@ -362,14 +439,16 @@ function AppContent() {
           case "profiles":
               return (
                   <Sidebar title={t("profiles")}>
-                      <div className="p-2">
-                        <button
-                            className="w-full bg-[#0e639c] text-white p-1 rounded"
-                            onClick={handleOpenProfiles}
-                        >
-                            {t("manageProfiles")}
-                        </button>
-                      </div>
+                      <ProfilesSidebar 
+                          onOpenProfile={handleOpenProfileDetail}
+                          onNewProfile={handleNewProfile}
+                      />
+                  </Sidebar>
+              );
+          case "transfers":
+              return (
+                  <Sidebar title={t("transfers")}>
+                      <TransferSidebar onOpenDashboard={handleOpenTransfers} />
                   </Sidebar>
               );
           default:
