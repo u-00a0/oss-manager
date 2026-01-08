@@ -1,6 +1,7 @@
 [package]
 name = "oss-cli"
-version = "0.1.0"
+version = "0.1.1"
+authors = ["u202f"]
 edition = "2021"
 
 [dependencies]

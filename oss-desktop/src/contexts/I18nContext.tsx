@@ -170,7 +170,8 @@ const translations = {
     confirmDeleteTitle: "Confirm Delete",
     success: "Success",
     deleteFailedTitle: "Delete Failed",
-    importedProfile: "Imported Profile"
+    importedProfile: "Imported Profile",
+    openSourceNotices: "Open Source Notices"
   },
   zh: {
     settings: "设置",
@@ -341,7 +342,8 @@ const translations = {
     confirmDeleteTitle: "确认删除",
     success: "成功",
     deleteFailedTitle: "删除失败",
-    importedProfile: "导入的配置"
+    importedProfile: "导入的配置",
+    openSourceNotices: "开源许可信息"
   }
 };
 

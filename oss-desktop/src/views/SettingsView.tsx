@@ -2,11 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { open } from "@tauri-apps/plugin-shell";
-import { FolderOpen, Loader2, Check, Github, Globe } from "lucide-react";
+import { FolderOpen, Loader2, Check, Github, Globe, FileText } from "lucide-react";
 import { useI18n } from "../contexts/I18nContext";
 import type { Language } from "../contexts/I18nContext";
 import { getVersion } from "@tauri-apps/api/app";
 import type { AppConfig } from "../types";
+import NoticesModal from "../components/NoticesModal";
 
 export default function SettingsView() {
     const { t, language, setLanguage } = useI18n();
@@ -14,6 +15,7 @@ export default function SettingsView() {
     const [appVersion, setAppVersion] = useState("Unknown");
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
     const [isLoaded, setIsLoaded] = useState(false);
+    const [showNotices, setShowNotices] = useState(false);
     
     // Use a ref to track if it's the first mount to prevent saving initial empty state
     // but actually we have isLoaded state.
@@ -188,10 +190,19 @@ export default function SettingsView() {
                                 <Globe size={16} />
                                 <span>{t("reportIssue")}</span>
                             </div>
+                            <div 
+                                onClick={() => setShowNotices(true)}
+                                className="flex items-center space-x-2 bg-[#3c3c3c] hover:bg-[#4d4d4d] px-4 py-2 rounded transition-colors text-sm text-[#cccccc] hover:text-white cursor-pointer"
+                            >
+                                <FileText size={16} />
+                                <span>{t("openSourceNotices")}</span>
+                            </div>
                         </div>
                     </div>
                 </section>
             </div>
+            
+            {showNotices && <NoticesModal onClose={() => setShowNotices(false)} />}
         </div>
     );
 }
