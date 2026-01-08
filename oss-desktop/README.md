@@ -1,5 +1,7 @@
 # OSS Manager Desktop
 
+View **English Version** [Here](README_EN.md)
+
 **OSS Manager Desktop** 是一款现代化、跨平台的对象存储图形化管理客户端。它基于 **Tauri 2** 架构构建，将原生 Rust 的性能优势与 **React 19** 灵动的 Web 前端交互完美结合，提供类 VS Code 的专业级文件管理体验。
 
 ## 🌟 核心功能

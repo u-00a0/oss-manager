@@ -1,7 +1,11 @@
 # OSS Manager
 
+[![GitHub Release](https://img.shields.io/github/v/release/u-00a0/oss-manager)](https://github.com/u-00a0/oss-manager/releases/latest)
+[![GitHub License](https://img.shields.io/github/license/u-00a0/oss-manager)](https://www.apache.org/licenses/LICENSE-2.0)
+<br>
 [![Release All](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml)
-[![Build and Release CLI](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml)
+[![Build and Release CLI](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml) 
+<br>
 
 OSS Manager is a high-performance, cross-platform file transfer solution for S3-compatible object storage, written in Rust. It aims to provide reliable and efficient file management capabilities, featuring resumable transfers, precise concurrency control, recursive directory operations, and support for multiple cloud providers.
 

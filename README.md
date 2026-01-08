@@ -5,6 +5,9 @@
 [![Release All](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release-all.yml)
 [![Build and Release CLI](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml/badge.svg)](https://github.com/u-00a0/oss-manager/actions/workflows/release.yml) 
 <br>
+
+View **English Version** [Here](README_EN.md)
+
 OSS Manager 是一套基于 Rust 语言开发的高性能对象存储（S3 兼容）文件传输解决方案。本项目旨在提供可靠、高效且跨平台的文件管理能力，支持断点续传、并发传输控制、递归目录操作以及多云厂商适配。
 
 ## 📥 下载

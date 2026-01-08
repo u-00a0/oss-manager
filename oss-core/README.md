@@ -1,5 +1,7 @@
 # OSS Core
 
+View **English Version** [Here](README_EN.md)
+
 **`oss-core`** 是 OSS Manager 生态系统的底层逻辑支柱，负责屏蔽 S3 协议的复杂性，并管理文件传输的生命周期。它采用异步 I/O 驱动，结合 `aws-sdk-s3` 进行协议通信，并利用 `sqlx` (SQLite) 记录传输状态。
 
 ## 🧩 核心模块设计
