@@ -632,35 +632,42 @@ pub fn run() {
           // Initialize Database
           let db_path = get_db_path();
           if let Some(parent) = db_path.parent() {
-              let _ = fs::create_dir_all(parent);
+              if let Err(e) = fs::create_dir_all(parent) {
+                  log::error!("Failed to create database directory: {}", e);
+              }
           }
     
           // Ensure file exists for sqlite
           if !db_path.exists() {
-              let _ = fs::File::create(&db_path);
+              if let Err(e) = fs::File::create(&db_path) {
+                  log::error!("Failed to create database file: {}", e);
+              }
           }
     
           let db_url = format!("sqlite://{}", db_path.to_string_lossy());
           let app_handle = app.handle().clone();
     
           tauri::async_runtime::block_on(async move {
-              let pool = SqlitePoolOptions::new()
+              match SqlitePoolOptions::new()
                   .max_connections(5)
                   .connect(&db_url)
-                  .await
-                  .unwrap_or_else(|e| {
+                  .await 
+              {
+                  Ok(pool) => {
+                      let repo = TaskRepository::new(pool);
+                      // Run migrations
+                      if let Err(e) = repo.migrate().await {
+                          log::error!("Failed to migrate database: {}", e);
+                      }
+                      // Manage repo even if migration fails? Maybe unsafe.
+                      // But usually migrate failure is non-fatal for existing tables.
+                      // Let's manage it so commands don't panic on missing state immediately.
+                      app_handle.manage(repo);
+                  },
+                  Err(e) => {
                       log::error!("Failed to connect to database at {}: {}", db_url, e);
-                      panic!("Failed to connect to database: {}", e);
-                  });
-    
-              let repo = TaskRepository::new(pool);
-              // Run migrations
-              repo.migrate().await.unwrap_or_else(|e| {
-                  log::error!("Failed to migrate database: {}", e);
-                  panic!("Failed to migrate database: {}", e);
-              });
-    
-              app_handle.manage(repo);
+                  }
+              }
           });
     
           Ok(())

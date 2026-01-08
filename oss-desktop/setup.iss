@@ -36,13 +36,16 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; CLI Binary (Bundled)
 Source: "..\target\release\{#MyCliExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; Webview2 Loader (Often needed by Tauri, usually built alongside)
-Source: "..\target\release\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+; Webview2 Loader
+Source: "..\target\release\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\ {#MyAppName}"; Filename: "{app}\ {#MyAppExeName}"
-Name: "{group}\ OSS Manager CLI"; Filename: "{app}\ {#MyCliExeName}"
-Name: "{autodesktop}\ {#MyAppName}"; Filename: "{app}\ {#MyAppExeName}"; Tasks: desktopicon
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\OSS Manager CLI"; Filename: "{app}\{#MyCliExeName}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Run]
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Registry]
 ; Add to PATH so CLI works
@@ -51,9 +54,32 @@ Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environmen
     Check: NeedsAddPath(ExpandConstant('{app}'))
 
 [Code]
+var
+  WebView2Missing: Boolean;
+
+function IsWebView2Installed: Boolean;
+var
+  PV: String;
+begin
+  Result := RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3C4BEC0-3506-435A-82B1-78599DCF2147}', 'pv', PV) or
+            RegQueryStringValue(HKEY_CURRENT_USER, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3C4BEC0-3506-435A-82B1-78599DCF2147}', 'pv', PV);
+end;
+
+function InitializeSetup: Boolean;
+begin
+  Result := True;
+  if not IsWebView2Installed then
+  begin
+    if MsgBox('This application requires the Microsoft WebView2 Runtime to run. Would you like to open the download page now?', mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      ShellExec('open', 'https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section', '', '', SW_SHOWNORMAL, ewNoWait, PV);
+    end;
+  end;
+end;
+
 function NeedsAddPath(Param: string): boolean;
 var
-  OrigPath: string;
+  OrigPath: String;
 begin
   if not RegQueryStringValue(HKEY_LOCAL_MACHINE,
     'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
