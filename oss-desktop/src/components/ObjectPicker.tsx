@@ -24,6 +24,7 @@ export default function ObjectPicker({ profile, initialBucket, onSelect, onCance
 
     // Load Buckets on mount
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoading(true);
         invoke<string[]>("list_buckets", { profileName: profile })
             .then(setBuckets)
@@ -35,6 +36,7 @@ export default function ObjectPicker({ profile, initialBucket, onSelect, onCance
     useEffect(() => {
         if (mode === "buckets") return;
         
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoading(true);
         invoke<FileEntry[]>("list_objects", { profileName: profile, bucket, prefix })
             .then(entries => {

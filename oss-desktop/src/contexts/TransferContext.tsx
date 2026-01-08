@@ -26,6 +26,7 @@ export interface TransferTask {
     status: 'running' | 'completed' | 'failed' | 'paused';
     startTime: number;
     params?: TransferTaskParams;
+    isDir: boolean;
 }
 
 export interface HistoryPoint {
@@ -71,7 +72,8 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
                 speed: 0,
                 status: 'running',
                 startTime: Date.now(),
-                params
+                params,
+                isDir: params?.isDir || false
             }
         }));
         taskRefs.current[path] = { lastBytes: 0, lastTime: Date.now(), speed: 0 };
@@ -200,7 +202,8 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
                              total,
                              speed,
                              status: transferred >= total && total > 0 ? 'completed' : 'running',
-                             startTime: now
+                             startTime: now,
+                             isDir: false
                          }
                      };
                 }
@@ -277,6 +280,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTransfer = () => {
     const context = useContext(TransferContext);
     if (!context) throw new Error("useTransfer must be used within TransferProvider");

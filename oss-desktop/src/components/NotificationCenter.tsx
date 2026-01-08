@@ -1,8 +1,10 @@
 import { useNotification } from '../contexts/NotificationContext';
 import NotificationItem from './NotificationItem';
 import { ChevronDown } from 'lucide-react';
+import { useI18n } from "../contexts/I18nContext";
 
 export default function NotificationCenter() {
+    const { t } = useI18n();
     const { notifications, isVisible, toggleVisibility } = useNotification();
 
     if (!isVisible) return null;

@@ -64,17 +64,17 @@ export default function EditorGroup({
         switch (activeTab.type) {
             case "file-browser": {
                 const data = activeTab.data;
-                if (!data) return <div>{t("error")}: Missing tab data</div>;
+                if (!data || !data.profile || !data.bucket) return <div>{t("error")}: Missing tab data</div>;
                 return <FileBrowser
                           profile={data.profile}
                           bucket={data.bucket}
                           isActive={isActiveGroup}
-                          onOpenFile={(key) => onOpenFile(data.profile, data.bucket, key)}
+                          onOpenFile={(key) => onOpenFile(data.profile!, data.bucket!, key)}
                        />;
             }
             case "file-details": {
                 const data = activeTab.data;
-                if (!data || !data.fileKey) return <div>{t("error")}: Missing file key</div>;
+                if (!data || !data.profile || !data.bucket || !data.fileKey) return <div>{t("error")}: Missing file key</div>;
                 return <FileDetails
                           profile={data.profile}
                           bucket={data.bucket}

@@ -4,6 +4,7 @@ import { useNotification } from "../contexts/NotificationContext";
 import { Loader2, Download, FileText, Image as ImageIcon, File, AlertCircle, Copy } from "lucide-react";
 import { join } from "@tauri-apps/api/path";
 import { save } from "@tauri-apps/plugin-dialog";
+import { useI18n } from "../contexts/I18nContext";
 
 interface FileDetailsProps {
     profile: string;
@@ -24,6 +25,7 @@ interface AppConfig {
 }
 
 export default function FileDetails({ profile, bucket, fileKey }: FileDetailsProps) {
+    const { t } = useI18n();
     const { addNotification, updateNotification } = useNotification();
     const [metadata, setMetadata] = useState<ObjectMetadata | null>(null);
     const [content, setContent] = useState<string | null>(null); // For text/base64

@@ -8,11 +8,10 @@ interface ActivityBarProps {
     onTabChange: (tab: string) => void;
     onOpenSettings: () => void;
     onOpenShortcuts: () => void;
-    onOpenTransfers: () => void;
     isSettingsTabActive: boolean;
 }
 
-export default function ActivityBar({ activeTab, onTabChange, onOpenSettings, onOpenShortcuts, onOpenTransfers, isSettingsTabActive }: ActivityBarProps) {
+export default function ActivityBar({ activeTab, onTabChange, onOpenSettings, onOpenShortcuts, isSettingsTabActive }: ActivityBarProps) {
     const { t } = useI18n();
     const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 

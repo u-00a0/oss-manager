@@ -81,6 +81,7 @@ export default function TitleBar() {
     
     // Actions
     const handleNewWindow = async () => {
+        // eslint-disable-next-line react-hooks/purity
         const label = `win-${Date.now()}`;
         try {
             await invoke("create_window", { label, url: "/index.html" });

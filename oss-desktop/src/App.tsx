@@ -235,7 +235,7 @@ function AppContent() {
         unlistenDrop.then(f => f());
         unlistenClaimed.then(f => f());
     };
-  }, []); // Empty dependency for listeners
+  }, [setLanguage]); // Added setLanguage dependency
 
   // Ref for active group to be used in event listeners if needed
   const activeGroupIdRef = useRef(activeGroupId);
@@ -501,7 +501,6 @@ function AppContent() {
             onTabChange={setActiveActivity} 
             onOpenSettings={handleOpenSettings}
             onOpenShortcuts={handleOpenShortcuts}
-            onOpenTransfers={handleOpenTransfers}
             isSettingsTabActive={globalActiveTabId === 'settings'}
         />
 

@@ -1,6 +1,6 @@
 import { useTransfer } from "../contexts/TransferContext";
 import { useI18n } from "../contexts/I18nContext";
-import { ArrowUp, ArrowDown, ExternalLink, Trash2, Folder, File, Pause, Play, Square, CheckCircle, XCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, ExternalLink, Folder, File, Pause, Play, Square, CheckCircle, XCircle } from "lucide-react";
 import clsx from "clsx";
 
 interface TransferSidebarProps {

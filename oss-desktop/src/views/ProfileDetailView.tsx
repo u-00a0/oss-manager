@@ -42,6 +42,7 @@ export default function ProfileDetailView({ profileName }: ProfileDetailViewProp
 
     useEffect(() => {
         if (profileName) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsNew(false);
             setName(profileName);
             // Load profile data
