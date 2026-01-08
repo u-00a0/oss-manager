@@ -103,9 +103,51 @@ jobs:
           npm install --legacy-peer-deps
           npm run tauri build
 
+      - name: Check WebView2Loader.dll
+        shell: powershell
+        run: |
+          if (Test-Path "oss-desktop/target/release/WebView2Loader.dll") {
+            Write-Host "WebView2Loader.dll found."
+          } else {
+            Write-Warning "WebView2Loader.dll NOT found in oss-desktop/target/release."
+            Get-ChildItem -Path "oss-desktop/target/release"
+          }
+
       - name: Create Dist Dir
         run: mkdir dist-win
         shell: cmd
+
+      - name: Prepare Fixed WebView2 Runtime
+        id: prepare-fixed
+        shell: powershell
+        env:
+          WEBVIEW2_URL: ${{ secrets.WEBVIEW2_URL }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:WEBVIEW2_URL)) {
+            Write-Warning "WEBVIEW2_URL secret not set. Skipping Fixed Version build."
+            echo "skipped=true" >> $env:GITHUB_OUTPUT
+            return
+          }
+          
+          $CabPath = "webview2.cab"
+          Invoke-WebRequest -Uri $env:WEBVIEW2_URL -OutFile $CabPath
+          
+          mkdir webview2-temp
+          expand $CabPath -F:* webview2-temp
+          
+          # The cab usually contains a versioned folder
+          $VersionDir = Get-ChildItem -Path webview2-temp -Directory | Select-Object -First 1
+          if ($VersionDir) {
+             # Move contents to a folder named 'webview2-fixed' in project root
+             mkdir webview2-fixed
+             Copy-Item -Path "$($VersionDir.FullName)\*" -Destination webview2-fixed -Recurse
+             echo "skipped=false" >> $env:GITHUB_OUTPUT
+          } else {
+             Write-Error "Could not find versioned directory in cab."
+             echo "skipped=true" >> $env:GITHUB_OUTPUT
+          }
+          Remove-Item $CabPath -Force
+          Remove-Item -Recurse -Force webview2-temp
 
       - name: Package CLI (Inno Setup)
         shell: cmd
@@ -116,6 +158,12 @@ jobs:
         shell: cmd
         run: |
           "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "oss-desktop\setup.iss" "/Odist-win" "/Foss-manager-desktop_${{ inputs.tag_name }}_x64_setup" "/DMyAppVersion=${{ inputs.tag_name }}"
+
+      - name: Package Desktop+CLI (Fixed Version)
+        if: steps.prepare-fixed.outputs.skipped != 'true'
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "oss-desktop\setup-fixed.iss" "/Odist-win" "/Foss-manager-desktop-full_${{ inputs.tag_name }}_x64_setup" "/DMyAppVersion=${{ inputs.tag_name }}"
 
       - uses: actions/upload-artifact@v4
         with:

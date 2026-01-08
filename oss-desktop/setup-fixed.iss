@@ -6,8 +6,8 @@
 #define MyCliExeName "oss-cli.exe"
 
 [Setup]
-AppId={{A1B2C3D4-E5F6-4789-0123-456789ABCDEF}}
-AppName={#MyAppName}
+AppId={{B2C3D4E5-F6A7-4890-1234-567890ABCDEF}
+AppName={#MyAppName} (Full)
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -16,7 +16,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\OSS Manager
 DefaultGroupName=OSS Manager
 PrivilegesRequired=admin
-OutputBaseFilename=oss-manager-desktop-setup
+OutputBaseFilename=oss-manager-desktop-setup-full
 Compression=lzma
 SolidCompression=yes
 ChangesEnvironment=yes
@@ -38,6 +38,8 @@ Source: "..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignorevers
 Source: "..\target\release\{#MyCliExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Webview2 Loader
 Source: "..\target\release\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+; Fixed WebView2 Runtime
+Source: "..\webview2-fixed\*"; DestDir: "{app}\webview2"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -54,29 +56,6 @@ Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environmen
     Check: NeedsAddPath(ExpandConstant('{app}'))
 
 [Code]
-var
-  WebView2Missing: Boolean;
-
-function IsWebView2Installed: Boolean;
-var
-  PV: String;
-begin
-  Result := RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3C4BEC0-3506-435A-82B1-78599DCF2147}', 'pv', PV) or
-            RegQueryStringValue(HKEY_CURRENT_USER, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3C4BEC0-3506-435A-82B1-78599DCF2147}', 'pv', PV);
-end;
-
-function InitializeSetup: Boolean;
-begin
-  Result := True;
-  if not IsWebView2Installed then
-  begin
-    if MsgBox('This application requires the Microsoft WebView2 Runtime to run. Would you like to open the download page now?', mbConfirmation, MB_YESNO) = IDYES then
-    begin
-      ShellExec('open', 'https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section', '', '', SW_SHOWNORMAL, ewNoWait, PV);
-    end;
-  end;
-end;
-
 function NeedsAddPath(Param: string): boolean;
 var
   OrigPath: String;
