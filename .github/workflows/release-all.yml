@@ -75,7 +75,8 @@ jobs:
       - name: 编译 Rust 二进制文件
         run: |
           # 显式构建所有成员，确保 oss-cli.exe 存在于 target/release
-          cargo build --release --verbose
+          # 移除 --verbose，使用 --quiet 减少刷屏
+          cargo build --release --quiet
           if (-not (Test-Path "target/release/oss-manager.exe")) { throw "oss-manager.exe 编译失败" }
           if (-not (Test-Path "target/release/oss-cli.exe")) { throw "oss-cli.exe 编译失败" }
 
@@ -153,7 +154,9 @@ jobs:
       - name: 安装系统依赖
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+          # 注意：Tauri v2 在 Linux 上现在默认使用 WebKitGTK 4.1
+          # 因此我们需要安装 libwebkit2gtk-4.1-dev 和 libsoup-3.0-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev
           
       - name: 设置 Rust
         uses: dtolnay/rust-toolchain@stable
