@@ -175,8 +175,12 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
           # 确保 release 目录有 oss-cli (虽然 cargo deb 可能已经构建了，但再次确认)
-          cd .. && cargo build --release -p oss-cli && cd oss-desktop
+          cd .. && cargo build --release -p oss-cli 
           
+          # 关键步骤：复制 oss-cli 为 oss-cli.exe 以满足 tauri.conf.json 在 Linux 上的资源检查
+          cp target/release/oss-cli target/release/oss-cli.exe
+          
+          cd oss-desktop
           npm run tauri build
           
       - name: 收集 Linux 产物
