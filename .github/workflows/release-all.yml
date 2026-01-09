@@ -75,8 +75,7 @@ jobs:
       - name: 编译 Rust 二进制文件
         run: |
           # 显式构建所有成员，确保 oss-cli.exe 存在于 target/release
-          # 移除 --verbose，使用 --quiet 减少刷屏
-          cargo build --release --quiet
+          cargo build --release
           if (-not (Test-Path "target/release/oss-manager.exe")) { throw "oss-manager.exe 编译失败" }
           if (-not (Test-Path "target/release/oss-cli.exe")) { throw "oss-cli.exe 编译失败" }
 
