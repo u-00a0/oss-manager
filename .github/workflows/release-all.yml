@@ -74,8 +74,13 @@ jobs:
           
       - name: 编译 Rust 二进制文件
         run: |
-          # 显式构建所有成员，确保 oss-cli.exe 存在于 target/release
+          # 1. 首先只构建 oss-cli，确保 oss-cli.exe 文件存在
+          cargo build --release --package oss-cli
+          
+          # 2. 现在构建整个工作区。oss-desktop 的 build.rs 脚本将能找到它需要的资源
           cargo build --release
+          
+          # 3. 验证所有二进制文件是否都已成功生成
           if (-not (Test-Path "target/release/oss-manager.exe")) { throw "oss-manager.exe 编译失败" }
           if (-not (Test-Path "target/release/oss-cli.exe")) { throw "oss-cli.exe 编译失败" }
 
