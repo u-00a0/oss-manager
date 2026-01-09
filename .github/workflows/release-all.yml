@@ -97,7 +97,7 @@ jobs:
       - name: 构建标准版 (NSIS, 系统 WebView)
         run: |
           cd oss-desktop
-          npm run tauri build -- --target nsis
+          npm run tauri build -- --bundles nsis
           
           # 移动产物以防被覆盖
           New-Item -ItemType Directory -Force -Path "../artifacts"
@@ -125,7 +125,7 @@ jobs:
           $configJson | Set-Content "nsis-fixed-config.json"
           
           # 运行构建，应用配置覆盖
-          npm run tauri build -- --target nsis --config nsis-fixed-config.json
+          npm run tauri build -- --bundles nsis --config nsis-fixed-config.json
           
           # 移动产物
           $setup = Get-ChildItem "../target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
