@@ -81,7 +81,7 @@ jobs:
           cargo build --release
           
           # 3. 验证所有二进制文件是否都已成功生成
-          if (-not (Test-Path "target/release/oss-manager.exe")) { throw "oss-manager.exe 编译失败" }
+          if (-not (Test-Path "target/release/oss-desktop.exe")) { throw "oss-desktop.exe 编译失败" }
           if (-not (Test-Path "target/release/oss-cli.exe")) { throw "oss-cli.exe 编译失败" }
 
       - name: 准备 WebView2 离线包 (CAB 格式)
