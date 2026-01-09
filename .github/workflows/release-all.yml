@@ -65,7 +65,7 @@ jobs:
       - name: 安装依赖
         run: |
           cd oss-desktop
-          npm install
+          npm install --legacy-peer-deps
           
       - name: 前端构建
         run: |
@@ -170,7 +170,7 @@ jobs:
       - name: 构建 oss-desktop (Deb & AppImage)
         run: |
           cd oss-desktop
-          npm install
+          npm install --legacy-peer-deps
           npm run build
           # 确保 release 目录有 oss-cli (虽然 cargo deb 可能已经构建了，但再次确认)
           cd .. && cargo build --release -p oss-cli && cd oss-desktop
