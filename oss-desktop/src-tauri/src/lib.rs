@@ -1,14 +1,14 @@
+use dashmap::DashMap;
 use oss_core::config::{ConfigManager, Profile};
 use oss_core::create_client;
-use oss_core::ops::S3Ops;
 use oss_core::db::TaskRepository;
+use oss_core::ops::S3Ops;
 use oss_core::transfer::TransferManager;
-use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Manager, WebviewWindowBuilder, WebviewUrl, State, Emitter};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqlitePoolOptions;
 use std::fs;
-use dashmap::DashMap;
+use std::path::{Path, PathBuf};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -39,11 +39,17 @@ pub struct ObjectMetadata {
 }
 
 fn get_config_path() -> PathBuf {
-    dirs::home_dir().expect("Could not find home directory").join(".oss-manager").join("config.json")
+    dirs::home_dir()
+        .expect("Could not find home directory")
+        .join(".oss-manager")
+        .join("config.json")
 }
 
 fn get_db_path() -> PathBuf {
-    dirs::home_dir().expect("Could not find home directory").join(".oss-manager").join("oss.db")
+    dirs::home_dir()
+        .expect("Could not find home directory")
+        .join(".oss-manager")
+        .join("oss.db")
 }
 
 #[tauri::command]
@@ -58,10 +64,16 @@ async fn create_window(app: AppHandle, label: String, url: String) -> Result<(),
 }
 
 #[tauri::command]
-async fn list_objects(profile_name: String, bucket: String, prefix: String) -> Result<Vec<FileEntry>, String> {
+async fn list_objects(
+    profile_name: String,
+    bucket: String,
+    prefix: String,
+) -> Result<Vec<FileEntry>, String> {
     let path = get_config_path();
     let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
-    let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
+    let profile = manager
+        .get_profile(&profile_name)
+        .ok_or("Profile not found")?;
 
     let client = create_client(
         profile.provider,
@@ -75,9 +87,17 @@ async fn list_objects(profile_name: String, bucket: String, prefix: String) -> R
     let mut entries = Vec::new();
 
     // 1. List "directories"
-    let dirs = ops.list_common_prefixes(&bucket, &prefix).await.map_err(|e| e.to_string())?;
+    let dirs = ops
+        .list_common_prefixes(&bucket, &prefix)
+        .await
+        .map_err(|e| e.to_string())?;
     for d in dirs {
-        let name = d.trim_end_matches('/').split('/').last().unwrap_or(&d).to_string();
+        let name = d
+            .trim_end_matches('/')
+            .split('/')
+            .last()
+            .unwrap_or(&d)
+            .to_string();
         entries.push(FileEntry {
             name,
             path: d,
@@ -88,7 +108,10 @@ async fn list_objects(profile_name: String, bucket: String, prefix: String) -> R
     }
 
     // 2. List files (non-recursive)
-    let files = ops.list_objects(&bucket, &prefix, false).await.map_err(|e| e.to_string())?;
+    let files = ops
+        .list_objects(&bucket, &prefix, false)
+        .await
+        .map_err(|e| e.to_string())?;
     for f in files {
         if let Some(key) = f.key {
             // Skip the directory placeholder itself if it exists
@@ -98,7 +121,7 @@ async fn list_objects(profile_name: String, bucket: String, prefix: String) -> R
             let name = key.split('/').last().unwrap_or(&key).to_string();
             let size = f.size.unwrap_or(0);
             let last_modified = f.last_modified.map(|t| t.to_millis().unwrap_or(0));
-            
+
             entries.push(FileEntry {
                 name,
                 path: key,
@@ -133,46 +156,35 @@ fn cancel_transfer(tokens: State<'_, TransferTokens>, path: String) {
 #[tauri::command]
 
 async fn upload_file(
-
     app: AppHandle,
 
     repo: State<'_, TaskRepository>,
 
     tokens: State<'_, TransferTokens>,
 
-    profile_name: String, 
+    profile_name: String,
 
-    bucket: String, 
+    bucket: String,
 
-    local_path: String, 
+    local_path: String,
 
-    dest_prefix: String
-
+    dest_prefix: String,
 ) -> Result<(), String> {
-
     let path = get_config_path();
 
     let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
 
-    let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
-
-
+    let profile = manager
+        .get_profile(&profile_name)
+        .ok_or("Profile not found")?;
 
     let client = create_client(
-
         profile.provider,
-
         profile.access_key.clone(),
-
         profile.secret_key.clone(),
-
         profile.region.clone(),
-
         profile.endpoint.clone(),
-
     );
-
-
 
     let tm = TransferManager::new(client, repo.inner().clone());
 
@@ -180,70 +192,55 @@ async fn upload_file(
 
     let path_str = local_path.clone();
 
-    
-
     // Calculate size (Single file or Directory)
 
     let file_size = if path.is_file() {
-
         std::fs::metadata(&local_path).map(|m| m.len()).unwrap_or(0)
-
     } else if path.is_dir() {
-
         walkdir::WalkDir::new(&local_path)
-
             .into_iter()
-
             .filter_map(|e| e.ok())
-
             .filter(|e| e.file_type().is_file())
-
             .map(|e| e.metadata().map(|m| m.len()).unwrap_or(0))
-
             .sum()
-
     } else {
-
         0
-
     };
 
-    
-
     let progress_callback = Some(std::sync::Arc::new(move |transferred| {
+        let _ = app.emit(
+            "upload-progress",
+            ProgressPayload {
+                path: path_str.clone(),
 
-        let _ = app.emit("upload-progress", ProgressPayload {
+                transferred,
 
-            path: path_str.clone(),
-
-            transferred,
-
-            total: file_size,
-
-        });
-
+                total: file_size,
+            },
+        );
     }) as std::sync::Arc<dyn Fn(u64) + Send + Sync>);
-
-    
 
     let token = CancellationToken::new();
 
     tokens.0.insert(local_path.clone(), token.clone());
 
-
-
     // Default concurrency 4
 
-    let res = tm.upload(path, &bucket, &dest_prefix, true, 4, progress_callback, Some(token)).await;
-
-    
+    let res = tm
+        .upload(
+            path,
+            &bucket,
+            &dest_prefix,
+            true,
+            4,
+            progress_callback,
+            Some(token),
+        )
+        .await;
 
     tokens.0.remove(&local_path);
 
-    
-
     res.map_err(|e| e.to_string())
-
 }
 
 #[tauri::command]
@@ -255,14 +252,18 @@ async fn download_file(
     bucket: String,
     key: String,
     local_path: String,
-    is_dir: bool
+    is_dir: bool,
 ) -> Result<(), String> {
-    println!("download_file called: profile='{}', bucket='{}', key='{}', to='{}', is_dir={}", 
-        profile_name, bucket, key, local_path, is_dir);
+    println!(
+        "download_file called: profile='{}', bucket='{}', key='{}', to='{}', is_dir={}",
+        profile_name, bucket, key, local_path, is_dir
+    );
 
     let path = get_config_path();
     let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
-    let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
+    let profile = manager
+        .get_profile(&profile_name)
+        .ok_or("Profile not found")?;
 
     let client = create_client(
         profile.provider,
@@ -279,7 +280,7 @@ async fn download_file(
     // Get size for progress (Best effort)
     let mut total_size = 0;
     let ops = S3Ops::new(client.clone());
-    
+
     if !is_dir {
         if let Ok(head) = client.head_object().bucket(&bucket).key(&key).send().await {
             total_size = head.content_length.unwrap_or(0) as u64;
@@ -292,241 +293,252 @@ async fn download_file(
     }
 
     let progress_callback = Some(std::sync::Arc::new(move |transferred| {
-        let _ = app.emit("download-progress", ProgressPayload {
-            path: key_str.clone(),
-            transferred,
-            total: total_size,
-        });
+        let _ = app.emit(
+            "download-progress",
+            ProgressPayload {
+                path: key_str.clone(),
+                transferred,
+                total: total_size,
+            },
+        );
     }) as std::sync::Arc<dyn Fn(u64) + Send + Sync>);
 
     let token = CancellationToken::new();
     tokens.0.insert(key.clone(), token.clone());
 
     // Use is_dir to determine if recursive download is needed
-    let res = tm.download(&bucket, &key, dest_path, is_dir, 4, progress_callback, Some(token)).await;
-    
+    let res = tm
+        .download(
+            &bucket,
+            &key,
+            dest_path,
+            is_dir,
+            4,
+            progress_callback,
+            Some(token),
+        )
+        .await;
+
     tokens.0.remove(&key);
-    
+
     res.map_err(|e| e.to_string())
-}    
-    #[tauri::command]
-    async fn delete_object(
-        profile_name: String,
-        bucket: String,
-        key: String,
-    ) -> Result<(), String> {
-        let path = get_config_path();
-        let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
-        let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
-    
-        let client = create_client(
-            profile.provider,
-            profile.access_key.clone(),
-            profile.secret_key.clone(),
-            profile.region.clone(),
-            profile.endpoint.clone(),
-        );
-    
-        let ops = S3Ops::new(client);
-        ops.delete_object(&bucket, &key).await.map_err(|e| e.to_string())?;
-    
-                Ok(())
-    
-            }
-    
-        
-    
-            #[tauri::command]
-    
-            async fn head_object(profile_name: String, bucket: String, key: String) -> Result<ObjectMetadata, String> {
-    
-                let path = get_config_path();
-    
-                let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
-    
-                let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
-    
-        
-    
-                let client = create_client(
-    
-                    profile.provider,
-    
-                    profile.access_key.clone(),
-    
-                    profile.secret_key.clone(),
-    
-                    profile.region.clone(),
-    
-                    profile.endpoint.clone(),
-    
-                );
-    
-        
-    
-                let resp = client.head_object().bucket(&bucket).key(&key).send().await.map_err(|e| e.to_string())?;
-    
-        
-    
-                Ok(ObjectMetadata {
-    
-                    key,
-    
-                    size: resp.content_length.unwrap_or(0),
-    
-                    last_modified: resp.last_modified.map(|t| t.to_millis().unwrap_or(0)),
-    
-                    etag: resp.e_tag.map(String::from),
-    
-                    content_type: resp.content_type.map(String::from),
-    
-                })
-    
-            }
-    
-        
-    
-            #[tauri::command]
-    
-            async fn read_object(profile_name: String, bucket: String, key: String) -> Result<Vec<u8>, String> {
-    
-                let path = get_config_path();
-    
-                let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
-    
-                let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
-    
-        
-    
-                let client = create_client(
-    
-                    profile.provider,
-    
-                    profile.access_key.clone(),
-    
-                    profile.secret_key.clone(),
-    
-                    profile.region.clone(),
-    
-                    profile.endpoint.clone(),
-    
-                );
-    
-        
-    
-                // Limit to 5MB for preview
-    
-                let range = "bytes=0-5242880"; 
-    
-                
-    
-                let resp = client.get_object().bucket(&bucket).key(&key).range(range).send().await.map_err(|e| e.to_string())?;
-    
-                
-    
-                let data = resp.body.collect().await.map_err(|e| e.to_string())?.into_bytes();
-    
-                Ok(data.to_vec())
-    
-            }
+}
+#[tauri::command]
+async fn delete_object(profile_name: String, bucket: String, key: String) -> Result<(), String> {
+    let path = get_config_path();
+    let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
+    let profile = manager
+        .get_profile(&profile_name)
+        .ok_or("Profile not found")?;
 
-            #[tauri::command]
-            async fn copy_objects(
-                repo: State<'_, TaskRepository>,
-                profile_name: String,
-                src_bucket: String,
-                src_key: String,
-                dest_bucket: String,
-                dest_key: String,
-                is_dir: bool,
-            ) -> Result<(), String> {
-                let path = get_config_path();
-                let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
-                let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
-            
-                let client = create_client(
-                    profile.provider,
-                    profile.access_key.clone(),
-                    profile.secret_key.clone(),
-                    profile.region.clone(),
-                    profile.endpoint.clone(),
-                );
-            
-                let tm = TransferManager::new(client, repo.inner().clone());
-                
-                // Ensure directory keys end with slash if recursive
-                let effective_src_key = if is_dir && !src_key.ends_with('/') {
-                    format!("{}/", src_key)
-                } else {
-                    src_key
-                };
+    let client = create_client(
+        profile.provider,
+        profile.access_key.clone(),
+        profile.secret_key.clone(),
+        profile.region.clone(),
+        profile.endpoint.clone(),
+    );
 
-                if src_bucket == dest_bucket {
-                    tm.copy_cloud(&src_bucket, &effective_src_key, &dest_bucket, &dest_key, is_dir)
-                        .await
-                        .map_err(|e| e.to_string())?;
-                } else {
-                    // Cross-bucket copy (transit via local)
-                    // Default concurrency: 4, No cancellation token for now
-                    tm.copy_cross_bucket(
-                        &src_bucket, 
-                        &effective_src_key, 
-                        &dest_bucket, 
-                        &dest_key, 
-                        is_dir, 
-                        4, 
-                        None
-                    )
-                    .await
-                    .map_err(|e| e.to_string())?;
-                }
-            
-                Ok(())
-            }
+    let ops = S3Ops::new(client);
+    ops.delete_object(&bucket, &key)
+        .await
+        .map_err(|e| e.to_string())?;
 
-            #[tauri::command]
-            async fn move_objects(
-                repo: State<'_, TaskRepository>,
-                profile_name: String,
-                src_bucket: String,
-                src_key: String,
-                dest_bucket: String,
-                dest_key: String,
-                is_dir: bool,
-            ) -> Result<(), String> {
-                let path = get_config_path();
-                let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
-                let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
-            
-                let client = create_client(
-                    profile.provider,
-                    profile.access_key.clone(),
-                    profile.secret_key.clone(),
-                    profile.region.clone(),
-                    profile.endpoint.clone(),
-                );
-            
-                let tm = TransferManager::new(client, repo.inner().clone());
+    Ok(())
+}
 
-                // Ensure directory keys end with slash if recursive
-                let effective_src_key = if is_dir && !src_key.ends_with('/') {
-                    format!("{}/", src_key)
-                } else {
-                    src_key
-                };
-                
-                tm.move_cloud(&src_bucket, &effective_src_key, &dest_bucket, &dest_key)
-                    .await
-                    .map_err(|e| e.to_string())?;
-            
-                Ok(())
-            }
-    
-        
-    
-            #[tauri::command]
-    
-            fn list_profiles() -> Result<std::collections::HashMap<String, Profile>, String> {    let path = get_config_path();
+#[tauri::command]
+
+async fn head_object(
+    profile_name: String,
+    bucket: String,
+    key: String,
+) -> Result<ObjectMetadata, String> {
+    let path = get_config_path();
+
+    let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
+
+    let profile = manager
+        .get_profile(&profile_name)
+        .ok_or("Profile not found")?;
+
+    let client = create_client(
+        profile.provider,
+        profile.access_key.clone(),
+        profile.secret_key.clone(),
+        profile.region.clone(),
+        profile.endpoint.clone(),
+    );
+
+    let resp = client
+        .head_object()
+        .bucket(&bucket)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(ObjectMetadata {
+        key,
+
+        size: resp.content_length.unwrap_or(0),
+
+        last_modified: resp.last_modified.map(|t| t.to_millis().unwrap_or(0)),
+
+        etag: resp.e_tag.map(String::from),
+
+        content_type: resp.content_type.map(String::from),
+    })
+}
+
+#[tauri::command]
+
+async fn read_object(profile_name: String, bucket: String, key: String) -> Result<Vec<u8>, String> {
+    let path = get_config_path();
+
+    let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
+
+    let profile = manager
+        .get_profile(&profile_name)
+        .ok_or("Profile not found")?;
+
+    let client = create_client(
+        profile.provider,
+        profile.access_key.clone(),
+        profile.secret_key.clone(),
+        profile.region.clone(),
+        profile.endpoint.clone(),
+    );
+
+    // Limit to 5MB for preview
+
+    let range = "bytes=0-5242880";
+
+    let resp = client
+        .get_object()
+        .bucket(&bucket)
+        .key(&key)
+        .range(range)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let data = resp
+        .body
+        .collect()
+        .await
+        .map_err(|e| e.to_string())?
+        .into_bytes();
+
+    Ok(data.to_vec())
+}
+
+#[tauri::command]
+async fn copy_objects(
+    repo: State<'_, TaskRepository>,
+    profile_name: String,
+    src_bucket: String,
+    src_key: String,
+    dest_bucket: String,
+    dest_key: String,
+    is_dir: bool,
+) -> Result<(), String> {
+    let path = get_config_path();
+    let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
+    let profile = manager
+        .get_profile(&profile_name)
+        .ok_or("Profile not found")?;
+
+    let client = create_client(
+        profile.provider,
+        profile.access_key.clone(),
+        profile.secret_key.clone(),
+        profile.region.clone(),
+        profile.endpoint.clone(),
+    );
+
+    let tm = TransferManager::new(client, repo.inner().clone());
+
+    // Ensure directory keys end with slash if recursive
+    let effective_src_key = if is_dir && !src_key.ends_with('/') {
+        format!("{}/", src_key)
+    } else {
+        src_key
+    };
+
+    if src_bucket == dest_bucket {
+        tm.copy_cloud(
+            &src_bucket,
+            &effective_src_key,
+            &dest_bucket,
+            &dest_key,
+            is_dir,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    } else {
+        // Cross-bucket copy (transit via local)
+        // Default concurrency: 4, No cancellation token for now
+        tm.copy_cross_bucket(
+            &src_bucket,
+            &effective_src_key,
+            &dest_bucket,
+            &dest_key,
+            is_dir,
+            4,
+            None,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn move_objects(
+    repo: State<'_, TaskRepository>,
+    profile_name: String,
+    src_bucket: String,
+    src_key: String,
+    dest_bucket: String,
+    dest_key: String,
+    is_dir: bool,
+) -> Result<(), String> {
+    let path = get_config_path();
+    let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
+    let profile = manager
+        .get_profile(&profile_name)
+        .ok_or("Profile not found")?;
+
+    let client = create_client(
+        profile.provider,
+        profile.access_key.clone(),
+        profile.secret_key.clone(),
+        profile.region.clone(),
+        profile.endpoint.clone(),
+    );
+
+    let tm = TransferManager::new(client, repo.inner().clone());
+
+    // Ensure directory keys end with slash if recursive
+    let effective_src_key = if is_dir && !src_key.ends_with('/') {
+        format!("{}/", src_key)
+    } else {
+        src_key
+    };
+
+    tm.move_cloud(&src_bucket, &effective_src_key, &dest_bucket, &dest_key)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+
+fn list_profiles() -> Result<std::collections::HashMap<String, Profile>, String> {
+    let path = get_config_path();
     let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
     Ok(manager.profiles)
 }
@@ -555,7 +567,9 @@ fn delete_profile(app: AppHandle, name: String) -> Result<(), String> {
 async fn list_buckets(profile_name: String) -> Result<Vec<String>, String> {
     let path = get_config_path();
     let manager = ConfigManager::load_from_file(&path).map_err(|e| e.to_string())?;
-    let profile = manager.get_profile(&profile_name).ok_or("Profile not found")?;
+    let profile = manager
+        .get_profile(&profile_name)
+        .ok_or("Profile not found")?;
 
     let client = create_client(
         profile.provider,
@@ -565,8 +579,16 @@ async fn list_buckets(profile_name: String) -> Result<Vec<String>, String> {
         profile.endpoint.clone(),
     );
 
-    let resp = client.list_buckets().send().await.map_err(|e| e.to_string())?;
-    let buckets = resp.buckets().iter().filter_map(|b| b.name().map(String::from)).collect();
+    let resp = client
+        .list_buckets()
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let buckets = resp
+        .buckets()
+        .iter()
+        .filter_map(|b| b.name().map(String::from))
+        .collect();
     Ok(buckets)
 }
 
@@ -594,83 +616,84 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![
-        greet,
-        list_profiles,
-        save_profile,
-        delete_profile,
-        list_buckets,
-        list_objects,
-        get_app_config,
-        save_app_settings,
-        create_window,
-        upload_file,
-        download_file,
-        delete_object,
-        head_object,
-        read_object,
-        copy_objects,
-        move_objects,
-        cancel_transfer
-    ])
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            list_profiles,
+            save_profile,
+            delete_profile,
+            list_buckets,
+            list_objects,
+            get_app_config,
+            save_app_settings,
+            create_window,
+            upload_file,
+            download_file,
+            delete_object,
+            head_object,
+            read_object,
+            copy_objects,
+            move_objects,
+            cancel_transfer
+        ])
         .setup(|app| {
-          app.handle().plugin(tauri_plugin_process::init())?;
-          app.handle().plugin(tauri_plugin_dialog::init())?;
-          app.handle().plugin(tauri_plugin_fs::init())?;
-          app.handle().plugin(tauri_plugin_shell::init())?;
-          
-          app.manage(TransferTokens(DashMap::new()));
+            app.handle().plugin(tauri_plugin_process::init())?;
+            app.handle().plugin(tauri_plugin_dialog::init())?;
+            app.handle().plugin(tauri_plugin_fs::init())?;
+            app.handle().plugin(tauri_plugin_shell::init())?;
 
-          // Always enable logging
-          app.handle().plugin(
-            tauri_plugin_log::Builder::default()
-              .level(log::LevelFilter::Info)
-              .build(),
-          )?;
-    
-          // Initialize Database
-          let db_path = get_db_path();
-          if let Some(parent) = db_path.parent() {
-              if let Err(e) = fs::create_dir_all(parent) {
-                  log::error!("Failed to create database directory: {}", e);
-              }
-          }
-    
-          // Ensure file exists for sqlite
-          if !db_path.exists() {
-              if let Err(e) = fs::File::create(&db_path) {
-                  log::error!("Failed to create database file: {}", e);
-              }
-          }
-    
-          let db_url = format!("sqlite://{}", db_path.to_string_lossy());
-          let app_handle = app.handle().clone();
-    
-          tauri::async_runtime::block_on(async move {
-              match SqlitePoolOptions::new()
-                  .max_connections(5)
-                  .connect(&db_url)
-                  .await 
-              {
-                  Ok(pool) => {
-                      let repo = TaskRepository::new(pool);
-                      // Run migrations
-                      if let Err(e) = repo.migrate().await {
-                          log::error!("Failed to migrate database: {}", e);
-                      }
-                      // Manage repo even if migration fails? Maybe unsafe.
-                      // But usually migrate failure is non-fatal for existing tables.
-                      // Let's manage it so commands don't panic on missing state immediately.
-                      app_handle.manage(repo);
-                  },
-                  Err(e) => {
-                      log::error!("Failed to connect to database at {}: {}", db_url, e);
-                  }
-              }
-          });
-    
-          Ok(())
-        })    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+            app.manage(TransferTokens(DashMap::new()));
+
+            // Always enable logging
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(log::LevelFilter::Info)
+                    .build(),
+            )?;
+
+            // Initialize Database
+            let db_path = get_db_path();
+            if let Some(parent) = db_path.parent() {
+                if let Err(e) = fs::create_dir_all(parent) {
+                    log::error!("Failed to create database directory: {}", e);
+                }
+            }
+
+            // Ensure file exists for sqlite
+            if !db_path.exists() {
+                if let Err(e) = fs::File::create(&db_path) {
+                    log::error!("Failed to create database file: {}", e);
+                }
+            }
+
+            let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+            let app_handle = app.handle().clone();
+
+            tauri::async_runtime::block_on(async move {
+                match SqlitePoolOptions::new()
+                    .max_connections(5)
+                    .connect(&db_url)
+                    .await
+                {
+                    Ok(pool) => {
+                        let repo = TaskRepository::new(pool);
+                        // Run migrations
+                        if let Err(e) = repo.migrate().await {
+                            log::error!("Failed to migrate database: {}", e);
+                        }
+                        // Manage repo even if migration fails? Maybe unsafe.
+                        // But usually migrate failure is non-fatal for existing tables.
+                        // Let's manage it so commands don't panic on missing state immediately.
+                        app_handle.manage(repo);
+                    }
+                    Err(e) => {
+                        log::error!("Failed to connect to database at {}: {}", db_url, e);
+                    }
+                }
+            });
+
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

@@ -14,7 +14,7 @@
       {
         "title": "OSS Manager",
         "width": 1200,
-        "height": 600,
+        "height": 700,
         "resizable": true,
         "fullscreen": false,
         "decorations": false,
@@ -28,6 +28,9 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "deb", "appimage"],
+    "copyright": "© 2026 OSS Manager Contributors. Some rights reserved.",
+    "publisher": "u202f",
+    "shortDescription": "A powerful file management tool for S3 compatible Object Storage Services.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

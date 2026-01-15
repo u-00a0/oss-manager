@@ -1,5 +1,5 @@
 use oss_core::config::{ConfigManager, Profile};
-use oss_core::db::{TaskRepository, TaskStatus, Part};
+use oss_core::db::{Part, TaskRepository, TaskStatus};
 use oss_core::S3Provider;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::path::Path;
@@ -29,7 +29,7 @@ async fn test_config_manager() {
 
     assert_eq!(loaded_profile.access_key, "test_ak");
     assert_eq!(loaded_profile.region, "us-west-1");
-    
+
     // Cleanup
     tokio::fs::remove_dir_all(&temp_dir).await.unwrap();
 }
@@ -41,21 +41,38 @@ async fn test_task_repository() {
         .connect("sqlite::memory:")
         .await
         .unwrap();
-    
+
     let repo = TaskRepository::new(pool);
     repo.migrate().await.unwrap();
 
     // 1. Create Task
-    let task_id = repo.create_task("/tmp/file.txt", "remote/key", "bucket", 1024).await.unwrap();
+    let task_id = repo
+        .create_task("/tmp/file.txt", "remote/key", "bucket", 1024)
+        .await
+        .unwrap();
     let task = repo.get_task(task_id).await.unwrap().unwrap();
-    
+
     assert_eq!(task.status, "paused");
     assert_eq!(task.total_size, 1024);
 
     // 2. Create Parts
     let parts = vec![
-        Part { task_id, part_number: 1, start_byte: 0, end_byte: 512, is_completed: false, etag: None },
-        Part { task_id, part_number: 2, start_byte: 512, end_byte: 1024, is_completed: false, etag: None },
+        Part {
+            task_id,
+            part_number: 1,
+            start_byte: 0,
+            end_byte: 512,
+            is_completed: false,
+            etag: None,
+        },
+        Part {
+            task_id,
+            part_number: 2,
+            start_byte: 512,
+            end_byte: 1024,
+            is_completed: false,
+            etag: None,
+        },
     ];
     repo.create_parts(parts).await.unwrap();
 
@@ -67,8 +84,12 @@ async fn test_task_repository() {
     assert_eq!(completed, 0);
 
     // 4. Update Status and Complete Part
-    repo.update_task_status(task_id, TaskStatus::Running).await.unwrap();
-    repo.mark_part_completed(task_id, 1, Some("etag123".into())).await.unwrap();
+    repo.update_task_status(task_id, TaskStatus::Running)
+        .await
+        .unwrap();
+    repo.mark_part_completed(task_id, 1, Some("etag123".into()))
+        .await
+        .unwrap();
 
     let incomplete_after = repo.get_incomplete_parts(task_id).await.unwrap();
     assert_eq!(incomplete_after.len(), 1);
@@ -82,9 +103,11 @@ async fn test_task_repository() {
     let found_task = repo.find_active_task("bucket", "remote/key").await.unwrap();
     assert!(found_task.is_some());
     assert_eq!(found_task.unwrap().id, task_id);
-    
+
     // 6. Complete Task
-    repo.update_task_status(task_id, TaskStatus::Completed).await.unwrap();
+    repo.update_task_status(task_id, TaskStatus::Completed)
+        .await
+        .unwrap();
     let found_completed = repo.find_active_task("bucket", "remote/key").await.unwrap();
     assert!(found_completed.is_none()); // Should not find completed task as "active"
 }

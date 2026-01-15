@@ -172,7 +172,7 @@ export default function SettingsView() {
                             
                             <div className="text-[#858585] text-right">License</div>
                             <div className="text-[#cccccc]">Apache License, Version 2.0</div>
-                            <div className="col-span-2 text-[#cccccc] text-center mt-2">© 2026 u202f, Some Rights Reserved</div>
+                            <div className="col-span-2 text-[#cccccc] text-center mt-2">© 2026 OSS Manager Contributors. Some rights reserved.</div>
                         </div>
 
                         <div className="flex space-x-4">

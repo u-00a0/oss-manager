@@ -9,9 +9,9 @@ pub use aws_sdk_s3;
 pub mod config;
 pub mod db;
 pub mod downloader;
-pub mod uploader;
 pub mod ops;
 pub mod transfer;
+pub mod uploader;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum S3Provider {
@@ -64,13 +64,13 @@ pub fn create_client(
         S3Provider::Aliyun | S3Provider::Tencent => {
             // Force path style for these providers to avoid DNS resolution issues with virtual buckets
             config_builder = config_builder.force_path_style(true);
-            
+
             if let Some(ep) = endpoint {
                 config_builder = config_builder.endpoint_url(ep);
             }
         }
         S3Provider::Aws => {
-             if let Some(ep) = endpoint {
+            if let Some(ep) = endpoint {
                 config_builder = config_builder.endpoint_url(ep);
             }
         }

@@ -20,11 +20,19 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 indicatif = "0.18.3"
 
 [package.metadata.deb]
-maintainer = "OSS Manager Team"
-copyright = "2025, OSS Manager Team"
+maintainer = "u202f"
+copyright = "© 2026 OSS Manager Contributors. Some rights reserved."
 depends = "$auto"
 section = "utility"
 priority = "optional"
+extended-description = """
+A powerful file management tool for S3 compatible Object Storage Services.
+Supports high-performance object storage file transfer, resumable uploads,
+recursive operations, and multi-cloud management.
+"""
 assets = [
     ["target/release/oss-cli", "usr/bin/oss-cli", "755"]
 ]
+
+[build-dependencies]
+winres = "0.1"

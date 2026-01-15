@@ -61,9 +61,9 @@ impl Downloader {
         // Since we don't have a lookup by all fields in `TaskRepository` yet, we'll create a new one
         // if we assume it's a fresh request, OR we could implement a lookup method.
         // For simplicity/robustness in this context, let's create a new task if it doesn't exist
-        // or resume if we can find the ID. 
-        // We will just create a new task entry for every "download session" request 
-        // or let the caller handle task management. 
+        // or resume if we can find the ID.
+        // We will just create a new task entry for every "download session" request
+        // or let the caller handle task management.
         // BUT, to satisfy "Query a local database to determine which chunks have already been downloaded",
         // we essentially need to support resuming.
         // Let's rely on `TaskRepository` having a method to find an existing task or we create one.
@@ -71,10 +71,10 @@ impl Downloader {
         // if the file exists and we have a task record?
         // Let's add a "find_task" logic or just create a new one for now and calculate parts.
         // Actually, to fully support "resume", we should query by (bucket, key, file_path).
-        // I will assume for now we create a new task for tracking this specific operation's metadata, 
-        // OR reuse if I had added a `find_task` method. 
+        // I will assume for now we create a new task for tracking this specific operation's metadata,
+        // OR reuse if I had added a `find_task` method.
         // Let's proceed with creating a task and then generating/checking parts.
-        
+
         // Ensure directory exists
         if let Some(parent) = file_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
@@ -87,7 +87,7 @@ impl Downloader {
             .read(true)
             .open(file_path)
             .await?;
-        
+
         // Pre-allocate file size
         file.set_len(total_size).await?;
         drop(file); // Close, we open per-task
@@ -96,8 +96,10 @@ impl Downloader {
             .db
             .create_task(&file_path_str, key, bucket, total_size as i64)
             .await?;
-        
-        self.db.update_task_status(task_id, TaskStatus::Running).await?;
+
+        self.db
+            .update_task_status(task_id, TaskStatus::Running)
+            .await?;
 
         // 3. Generate Parts
         let mut parts = Vec::new();
@@ -125,17 +127,17 @@ impl Downloader {
         // if I use `create_task` every time, I can't resume.
         // IMPORTANT: The prompt implies RESUMING capability.
         // I will implement a quick "check existing parts" logic if I can.
-        // Given I only have `create_task`, I will proceed with inserting parts. 
+        // Given I only have `create_task`, I will proceed with inserting parts.
         // If the user wanted persistent resume across CLI restarts, I'd need a `find_task` method in `TaskRepository`.
         // I will proceed with the "fresh download" flow but implemented correctly for concurrency.
-        // *Correction*: To strictly follow "Query a local database...", I will first insert these parts, 
+        // *Correction*: To strictly follow "Query a local database...", I will first insert these parts,
         // then query `get_incomplete_parts` (which returns all of them now).
         // If I was building a robust resume system, I'd lookup the task first.
-        
+
         self.db.create_parts(parts).await?;
-        
+
         let pending_parts = self.db.get_incomplete_parts(task_id).await?;
-        
+
         // Progress Init
         let transferred_atomic = Arc::new(AtomicU64::new(0));
         if let Some(ref cb) = progress_callback {
@@ -164,7 +166,7 @@ impl Downloader {
             let bucket = bucket.clone();
             let key = key.clone();
             let file_path = file_path_buf.clone();
-            
+
             let cb = progress_callback.clone();
             let transferred_atomic = transferred_atomic.clone();
 
@@ -173,17 +175,10 @@ impl Downloader {
                 let _permit = permit;
                 let part_size = (part.end_byte - part.start_byte) as u64;
 
-                Self::download_part(
-                    client,
-                    db,
-                    bucket,
-                    key,
-                    file_path,
-                    part,
-                )
-                .await?;
-                
-                let new_total = transferred_atomic.fetch_add(part_size, Ordering::Relaxed) + part_size;
+                Self::download_part(client, db, bucket, key, file_path, part).await?;
+
+                let new_total =
+                    transferred_atomic.fetch_add(part_size, Ordering::Relaxed) + part_size;
                 if let Some(callback) = cb {
                     callback(new_total);
                 }
@@ -202,7 +197,7 @@ impl Downloader {
             }
 
             match res {
-                Ok(Ok(_)) => {},
+                Ok(Ok(_)) => {}
                 Ok(Err(e)) => {
                     eprintln!("Part download failed: {:?}", e);
                     error_occurred = true;
@@ -215,10 +210,14 @@ impl Downloader {
         }
 
         if error_occurred {
-             self.db.update_task_status(task_id, TaskStatus::Failed).await?;
-             anyhow::bail!("One or more parts failed to download");
+            self.db
+                .update_task_status(task_id, TaskStatus::Failed)
+                .await?;
+            anyhow::bail!("One or more parts failed to download");
         } else {
-             self.db.update_task_status(task_id, TaskStatus::Completed).await?;
+            self.db
+                .update_task_status(task_id, TaskStatus::Completed)
+                .await?;
         }
 
         Ok(())
@@ -233,12 +232,12 @@ impl Downloader {
         part: Part,
     ) -> Result<()> {
         // Range header format: "bytes=start-end" (inclusive)
-        // Note: HTTP range end is inclusive. Our part.end_byte is exclusive in calculation logic usually, 
+        // Note: HTTP range end is inclusive. Our part.end_byte is exclusive in calculation logic usually,
         // but let's check how I generated it.
         // "start_byte + CHUNK_SIZE". If start=0, size=10, end=10.
         // Range should be 0-9.
         // So HTTP range is start_byte .. (end_byte - 1).
-        
+
         let range_header = format!("bytes={}-{}", part.start_byte, part.end_byte - 1);
 
         let resp = client
@@ -264,7 +263,8 @@ impl Downloader {
         file.flush().await?;
 
         // Mark complete
-        db.mark_part_completed(part.task_id, part.part_number, resp.e_tag).await?;
+        db.mark_part_completed(part.task_id, part.part_number, resp.e_tag)
+            .await?;
 
         Ok(())
     }

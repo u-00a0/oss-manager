@@ -1,6 +1,6 @@
-use sqlx::{SqlitePool, Row, FromRow};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use sqlx::{FromRow, Row, SqlitePool};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -69,9 +69,7 @@ impl TaskRepository {
 
     /// Run migrations
     pub async fn migrate(&self) -> Result<()> {
-        sqlx::migrate!("./migrations")
-            .run(&self.pool)
-            .await?;
+        sqlx::migrate!("./migrations").run(&self.pool).await?;
         Ok(())
     }
 
@@ -112,35 +110,29 @@ impl TaskRepository {
     }
 
     pub async fn set_upload_id(&self, task_id: i64, upload_id: &str) -> Result<()> {
-        sqlx::query(
-            "UPDATE tasks SET upload_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
-        )
-        .bind(upload_id)
-        .bind(task_id)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("UPDATE tasks SET upload_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+            .bind(upload_id)
+            .bind(task_id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
     pub async fn get_task(&self, id: i64) -> Result<Option<Task>> {
-        let task = sqlx::query_as::<_, Task>(
-            "SELECT * FROM tasks WHERE id = ?"
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let task = sqlx::query_as::<_, Task>("SELECT * FROM tasks WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(task)
     }
 
     pub async fn update_task_status(&self, id: i64, status: TaskStatus) -> Result<()> {
-        sqlx::query(
-            "UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
-        )
-        .bind(status.to_string())
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+            .bind(status.to_string())
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -156,7 +148,7 @@ impl TaskRepository {
                 r#"
                 INSERT INTO parts (task_id, part_number, start_byte, end_byte, is_completed, etag)
                 VALUES (?, ?, ?, ?, ?, ?)
-                "#
+                "#,
             )
             .bind(part.task_id)
             .bind(part.part_number)
@@ -172,9 +164,14 @@ impl TaskRepository {
         Ok(())
     }
 
-    pub async fn mark_part_completed(&self, task_id: i64, part_number: i64, etag: Option<String>) -> Result<()> {
+    pub async fn mark_part_completed(
+        &self,
+        task_id: i64,
+        part_number: i64,
+        etag: Option<String>,
+    ) -> Result<()> {
         sqlx::query(
-            "UPDATE parts SET is_completed = 1, etag = ? WHERE task_id = ? AND part_number = ?"
+            "UPDATE parts SET is_completed = 1, etag = ? WHERE task_id = ? AND part_number = ?",
         )
         .bind(etag)
         .bind(task_id)
@@ -186,7 +183,7 @@ impl TaskRepository {
 
     pub async fn get_incomplete_parts(&self, task_id: i64) -> Result<Vec<Part>> {
         let parts = sqlx::query_as::<_, Part>(
-            "SELECT * FROM parts WHERE task_id = ? AND is_completed = 0 ORDER BY part_number ASC"
+            "SELECT * FROM parts WHERE task_id = ? AND is_completed = 0 ORDER BY part_number ASC",
         )
         .bind(task_id)
         .fetch_all(&self.pool)
@@ -196,22 +193,22 @@ impl TaskRepository {
 
     pub async fn get_completed_parts(&self, task_id: i64) -> Result<Vec<Part>> {
         let parts = sqlx::query_as::<_, Part>(
-            "SELECT * FROM parts WHERE task_id = ? AND is_completed = 1 ORDER BY part_number ASC"
+            "SELECT * FROM parts WHERE task_id = ? AND is_completed = 1 ORDER BY part_number ASC",
         )
         .bind(task_id)
         .fetch_all(&self.pool)
         .await?;
         Ok(parts)
     }
-    
+
     pub async fn get_task_progress(&self, task_id: i64) -> Result<(i64, i64)> {
-         let row: (i64, i64) = sqlx::query_as(
+        let row: (i64, i64) = sqlx::query_as(
             "SELECT COUNT(*), SUM(CASE WHEN is_completed THEN 1 ELSE 0 END) FROM parts WHERE task_id = ?"
         )
         .bind(task_id)
         .fetch_one(&self.pool)
         .await?;
-        
+
         Ok(row)
     }
 }
