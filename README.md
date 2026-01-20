@@ -18,6 +18,10 @@ OSS Manager 是一套基于 Rust 语言开发的高性能对象存储（S3 兼�
 
 ## 🏗️ 项目架构
 
+> [!WARNING]
+> THIS PROJECT INCLUDING A HUGE AMOUNT OF AI GENERATED LOW QUALITY CODE.<br>
+> 该项目内含致死量 AI 生成的低质量代码。
+
 本项目采用 Rust Workspace 模式组织，由以下核心组件构成：
 
 *   **[`oss-core`](./oss-core/README.md)**：核心逻辑库。
